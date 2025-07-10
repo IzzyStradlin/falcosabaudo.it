@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KPI Table</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-[#e3f0fa] via-[#fafdff] to-[#e3f0fa] min-h-screen flex flex-col font-sans text-black">
+    <main class="flex-grow p-8">
+        <div class="table-container">
+            <form action="/module/1" method="POST">
+                <table class="w-full border-collapse border border-gray-300 text-base shadow-lg bg-white">
+                    <thead>
+                        <tr class="bg-white text-center">
+                            <th class="border border-gray-300 p-2 font-bold text-black text-center">SPI Name</th>
+                            <th class="border border-gray-300 p-2 font-bold text-black text-center">Target<br><span class="font-normal text-xs">(for the ref. Period)</span></th>
+                            <th class="border border-gray-300 p-2 font-bold text-black text-center">Aver./Sum<br><span class="font-normal text-xs">(for the ref. Period)</span></th>
+                            <th class="border border-gray-300 p-2 font-bold text-black text-center">Rolling 12M</th>
+                            <th class="border border-gray-300 p-2 font-bold text-black text-center">Previous Full Year</th>
+                            {% for m in month_labels[:-1] %}
+                                <th class="border border-gray-300 p-2 font-bold text-black text-center">{{ m }}</th>
+                            {% endfor %}
+                            <th class="border border-gray-300 p-2 font-bold text-black text-center">Previous Month</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for spi in spi_names %}
+                            {% set is_group = "Fleet Block time" in spi or "Fleet Flight cycles" in spi or "Fleet Flight hours per cycle" in spi %}
+                            {% set is_flight_hours_per_cycle = spi in [
+                                "Flight hours per cycle (I-MSCA)",
+                                "Flight hours per cycle (I-MSCB)",
+                                "Flight hours per cycle (I-MSCC)"
+                            ] %}
+                            <tr class="{% if is_group %}bg-[#d9f1fb] font-bold{% elif loop.index0 % 2 == 0 %}bg-white{% else %}bg-[#fafdff]{% endif %}">
+                                <td class="border border-gray-300 p-2 {% if is_group %}text-black{% else %}pl-6{% endif %}">{{ spi }}</td>
+                                <td class="border border-gray-300 p-2 text-center align-middle">
+                                    {% if loop.index0 in [0,1] %}
+                                        ≥ 5000 FHs
+                                    {% elif loop.index0 in [2,3] %}
+                                        -
+                                    {% elif loop.index0 in [4,5] %}
+                                        ≥ 475 FCs
+                                    {% elif loop.index0 in [6,7] %}
+                                        -
+                                    {% elif loop.index0 in [8,9,10,11] %}
+                                        ≥ 8 FHs/FC
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="border border-gray-300 p-2 text-center">
+                                    {% if spi == "Fleet Block time (HH:MM) - COM flights only" %}
+                                        {{ avg_fleet_block_time }}
+                                    {% elif spi == "Fleet Flight cycles - COM flights only" %}
+                                        {{ avg_fleet_cycles }}
+                                    {% elif spi in [
+                                        "Fleet Flight hours per cycle",
+                                        "Flight hours per cycle (I-MSCA)",
+                                        "Flight hours per cycle (I-MSCB)",
+                                        "Flight hours per cycle (I-MSCC)"
+                                    ] %}
+                                        {{ avg_hours_per_cycle[spi] }}
+                                    {% else %}
+                                        <!-- other cases or leave empty -->
+                                    {% endif %}
+                                </td>
+                                <td class="border border-gray-300 p-2 text-center">
+                                    {% if spi in [
+                                        "Fleet Flight hours per cycle",
+                                        "Flight hours per cycle (I-MSCA)",
+                                        "Flight hours per cycle (I-MSCB)",
+                                        "Flight hours per cycle (I-MSCC)"
+                                    ] %}
+                                        {{ rolling_12m_hours_per_cycle[spi] }}
+                                    {% else %}
+                                        {{ rolling_12m[spi] }}
+                                    {% endif %}
+                                </td>
+                                <td class="border border-gray-300 p-2 text-center">
+                                    {% if spi in [
+                                        "Fleet Flight hours per cycle",
+                                        "Flight hours per cycle (I-MSCA)",
+                                        "Flight hours per cycle (I-MSCB)",
+                                        "Flight hours per cycle (I-MSCC)"
+                                    ] %}
+                                        {{ prev_year_hours_per_cycle[spi] }}
+                                    {% else %}
+                                        <!-- altri casi -->
+                                    {% endif %}
+                                </td>
+                                {% for m in month_labels[:-1] %}
+                                    <td class="border border-gray-300 p-2 text-center">
+                                        {% if spi == "Fleet Flight hours per cycle" %}
+                                            {% set val_bt = data["Fleet Block time (HH:MM) - COM flights only"][m] %}
+                                            {% set val_cy = data["Fleet Flight cycles - COM flights only"][m] %}
+                                            {% set minutes = (val_bt.split(':')[0]|int * 60 + val_bt.split(':')[1]|int) if val_bt and ':' in val_bt else 0 %}
+                                            {% set cycles = val_cy|int if val_cy and val_cy.isdigit() else 0 %}
+                                            {% if cycles > 0 %}
+                                                {% set avg = minutes / cycles %}
+                                                {{ "%02d:%02d" % (avg // 60, avg % 60) }}
+                                            {% else %}
+                                                00:00
+                                            {% endif %}
+                                        {% elif spi in [
+                                            "Flight hours per cycle (I-MSCA)",
+                                            "Flight hours per cycle (I-MSCB)",
+                                            "Flight hours per cycle (I-MSCC)"
+                                        ] %}
+                                            {% set ac = spi.split('(')[1].split(')')[0] %}
+                                            {% set val_bt = data["Block time (" ~ ac ~ ")"][m] %}
+                                            {% set val_cy = data["Flight cycles (" ~ ac ~ ")"][m] %}
+                                            {% set minutes = (val_bt.split(':')[0]|int * 60 + val_bt.split(':')[1]|int) if val_bt and ':' in val_bt else 0 %}
+                                            {% set cycles = val_cy|int if val_cy and val_cy.isdigit() else 0 %}
+                                            {% if cycles > 0 %}
+                                                {% set avg = minutes / cycles %}
+                                                {{ "%02d:%02d" % (avg // 60, avg % 60) }}
+                                            {% else %}
+                                                00:00
+                                            {% endif %}
+                                        {% else %}
+                                            {{ data[spi][m] }}
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                                <td class="border border-gray-300 p-2 text-center">
+                                    {% if spi in [
+                                        "Block time (I-MSCA)", "Block time (I-MSCB)", "Block time (I-MSCC)"
+                                    ] %}
+                                        {% set val = data[spi][previous_month] %}
+                                        <input type="text" name="{{ spi }}_hours" value="{{ val.split(':')[0] if val and ':' in val else '' }}" class="w-12 border rounded p-1 text-center" maxlength="3" placeholder="hh">
+                                        :
+                                        <input type="text" name="{{ spi }}_minutes" value="{{ val.split(':')[1] if val and ':' in val else '' }}" class="w-12 border rounded p-1 text-center" maxlength="2" placeholder="mm">
+                                    {% elif spi in [
+                                        "Flight cycles (I-MSCA)", "Flight cycles (I-MSCB)", "Flight cycles (I-MSCC)"
+                                    ] %}
+                                        <input type="text" name="{{ spi }}_cycle" value="{{ data[spi][previous_month] }}" class="w-16 border rounded p-1 text-center" maxlength="4" placeholder="cycles">
+                                    {% elif spi == "Fleet Flight hours per cycle" or spi.startswith("Flight hours per cycle") %}
+                                        {# Solo visualizzazione, calcolo automatico #}
+                                        {% if spi == "Fleet Flight hours per cycle" %}
+                                            {% set val_bt = data["Fleet Block time (HH:MM) - COM flights only"][previous_month] %}
+                                            {% set val_cy = data["Fleet Flight cycles - COM flights only"][previous_month] %}
+                                        {% else %}
+                                            {% set ac = spi.split('(')[1].split(')')[0] %}
+                                            {% set val_bt = data["Block time (" ~ ac ~ ")"][previous_month] %}
+                                            {% set val_cy = data["Flight cycles (" ~ ac ~ ")"][previous_month] %}
+                                        {% endif %}
+                                        {% set minutes = (val_bt.split(':')[0]|int * 60 + val_bt.split(':')[1]|int) if val_bt and ':' in val_bt else 0 %}
+                                        {% set cycles = val_cy|int if val_cy and val_cy.isdigit() else 0 %}
+                                        {% if cycles > 0 %}
+                                            {% set avg = minutes / cycles %}
+                                            {{ "%02d:%02d" % (avg // 60, avg % 60) }}
+                                        {% else %}
+                                            00:00
+                                        {% endif %}
+                                    {% else %}
+                                        {{ data[spi][previous_month] }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="mt-6 text-right">
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-bold shadow">Save previous month</button>
+                </div>
+            </form>
+        </div>
+    </main>
+    <div class="text-center mb-8">
+        <a href="/landing" class="inline-flex items-center bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7m-2 2v7a2 2 0 01-2 2h-4a2 2 0 01-2-2v-7m-2 2l-2 2m0-2l-2-2" />
+            </svg>
+            Home
+        </a>
+    </div>
+    <div class="text-center mb-9">
+    <a href="#" id="openChartPopup" class="inline-flex items-center bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7m-2 2v7a2 2 0 01-2 2h-4a2 2 0 01-2-2v-7m-2 2l-2 2m0-2l-2-2" />
+        </svg>
+        Graphs
+    </a>
+    </div>
+    <div id="chartPopup" class="popup" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); max-width: 90vw; max-height: 90vh; width: 900px; overflow: hidden;">
+      <div id="popupHeader" style="cursor: move; background: #f1f1f1; padding: 10px; border-bottom: 1px solid #ccc;">
+        <span id="closeChartPopup" class="close" style="cursor: pointer; float: right; font-size: 20px;">&times;</span>
+        <strong>Graphs</strong>
+      </div>
+      <div class="popup-content" style="overflow-y: auto; max-height: calc(90vh - 60px); padding: 15px;">
+        <div class="chart-container" style="position: relative; height: 300px; margin-bottom: 20px;">
+          <canvas id="flightTimeChart"></canvas>
+        </div>
+        <div class="chart-container" style="position: relative; height: 300px; margin-bottom: 20px;">
+          <canvas id="flightCyclesChart"></canvas>
+        </div>
+        <div class="chart-container" style="position: relative; height: 300px;">
+          <canvas id="fleetHoursPerCycleChart"></canvas>
+        </div>
+        <style>
+          .popup-content canvas {
+            width: 100% !important;
+            height: 100% !important;
+          }
+          .chart-container {
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          @media (max-height: 900px) {
+            .chart-container {
+              height: 250px;
+            }
+          }
+          @media (max-height: 700px) {
+            .chart-container {
+              height: 200px;
+            }
+          }
+        </style>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      document.getElementById('openChartPopup').addEventListener('click', function() {
+        document.getElementById('chartPopup').style.display = 'block';
+        fetch('/module/1/chart-data')
+          .then(response => response.json())
+          .then(data => {
+            const ctxFlightHours = document.getElementById('flightTimeChart').getContext('2d');
+            new Chart(ctxFlightHours, {
+              type: 'line',
+              data: {
+                labels: data.months,
+                datasets: [{
+                  label: 'FlightTime - blockHours',
+                  data: data.flight_hours_values,
+                  borderColor: 'rgba(75, 192, 192, 1)',
+                  backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                },
+                scales: {
+                  x: {
+                    ticks: {
+                      autoSkip: false,
+                    },
+                  },
+                },
+              },
+            });
+
+            const ctxFlightCycles = document.getElementById('flightCyclesChart').getContext('2d');
+            new Chart(ctxFlightCycles, {
+              type: 'line',
+              data: {
+                labels: data.months,
+                datasets: [{
+                  label: 'Flight Cycles',
+                  data: data.flight_cycles_values,
+                  borderColor: 'rgba(255, 99, 132, 1)',
+                  backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                },
+                scales: {
+                  x: {
+                    ticks: {
+                      autoSkip: false,
+                    },
+                  },
+                },
+              },
+            });
+
+            // Calcola Fleet Hours per Cycle dividendo flight_hours_values per flight_cycles_values
+            const hoursPerCycle = data.flight_hours_values.map((hours, index) => {
+              const cycles = data.flight_cycles_values[index];
+              return cycles > 0 ? hours / cycles : 0;
+            });
+
+            const ctxHoursPerCycle = document.getElementById('fleetHoursPerCycleChart').getContext('2d');
+            new Chart(ctxHoursPerCycle, {
+              type: 'line',
+              data: {
+                labels: data.months,
+                datasets: [{
+                  label: 'Fleet Hours per Cycle',
+                  data: hoursPerCycle,
+                  borderColor: 'rgba(153, 102, 255, 1)',
+                  backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                },
+                scales: {
+                  x: {
+                    ticks: {
+                      autoSkip: false,
+                    },
+                  },
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function(value) {
+                        return value.toFixed(2);
+                      }
+                    }
+                  }
+                },
+              },
+            });
+          });
+      });
+
+      document.getElementById('closeChartPopup').addEventListener('click', function() {
+        document.getElementById('chartPopup').style.display = 'none';
+      });
+
+      // Drag-and-drop functionality
+      const popup = document.getElementById('chartPopup');
+      const header = document.getElementById('popupHeader');
+
+      let offsetX = 0, offsetY = 0, isDragging = false;
+
+      header.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        offsetX = e.clientX - popup.offsetLeft;
+        offsetY = e.clientY - popup.offsetTop;
+      });
+
+      document.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+          popup.style.left = `${e.clientX - offsetX}px`;
+          popup.style.top = `${e.clientY - offsetY}px`;
+        }
+      });
+
+      document.addEventListener('mouseup', function() {
+        isDragging = false;
+      });
+    </script>
+</body>
+</html>

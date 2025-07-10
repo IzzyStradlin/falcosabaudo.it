@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to MSCAir</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('{{ url_for('static', filename='images/intro_background.jpg') }}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-center items-center h-screen text-center text-white bg-opacity-75">
+    <div class="bg-black bg-opacity-50 p-8 rounded-lg shadow-lg">
+        <h1 class="text-6xl font-extrabold mb-6">Welcome to MSC AIR SPIs</h1>
+        <p class="text-2xl mb-8">Your one-stop solution for safety and operational insights.</p>
+        <a href="/landing" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg shadow-lg transition duration-300 transform hover:scale-105">
+            Enter
+        </a>
+    </div>
+</body>
+</html>

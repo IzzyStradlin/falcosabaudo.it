@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Ops Module</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-r from-blue-400 via-blue-300 to-blue-200 min-h-screen flex flex-col font-sans text-gray-800">
+    <main class="flex-grow p-8">
+        <form action="/module/7" method="POST" class="mb-8 bg-white p-6 rounded shadow-md">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Flight Ops Module</h2>
+
+            <!-- SPI -->
+            <label for="spi" class="block mb-2 font-bold text-gray-800">Safety Performance Indicator (SPI):</label>
+            <select id="spi" name="spi" class="w-full p-2 border border-gray-300 rounded mb-4" required>
+                <option value="">-- Select SPI --</option>
+                <option value="Nr. of pilot/crew incapacitation per month">Nr. of pilot/crew incapacitation per month</option>
+                <option value="Nr of Monthly Night Duty">Nr of Monthly Night Duty</option>
+                <option value="Robustness Pairing changes">Robustness Pairing changes</option>
+                <option value="Robustness Notifications">Robustness Notifications</option>
+                <option value="FDP exceedance">FDP exceedance</option>
+                <option value="Days Off Average - Cpt">Days Off Average - Cpt</option>
+                <option value="Days Off Average - F/O">Days Off Average - F/O</option>
+                <option value="Used Stand By">Used Stand By</option>
+                <option value="Bought Days">Bought Days</option>
+                <option value="FDP-1">FDP-1</option>
+                <option value="FDP-2 - Cpt">FDP-2 - Cpt</option>
+                <option value="FDP-2 - F/O">FDP-2 - F/O</option>
+                <option value="Fuel">Fuel</option>
+                <option value="Low-Visibility-1">Low-Visibility-1</option>
+                <option value="Low-Visibility-2">Low-Visibility-2</option>
+            </select>
+
+            <!-- Reference Month -->
+            <label for="reference_month" class="block mb-2 font-bold text-gray-800">Reference Month:</label>
+            <select id="reference_month" name="reference_month" class="w-full p-2 border border-gray-300 rounded mb-4" required>
+                <option value="Jan">Jan</option>
+                <option value="Feb">Feb</option>
+                <option value="Mar">Mar</option>
+                <option value="Apr">Apr</option>
+                <option value="May">May</option>
+                <option value="Jun">Jun</option>
+                <option value="Jul">Jul</option>
+                <option value="Aug">Aug</option>
+                <option value="Sep">Sep</option>
+                <option value="Oct">Oct</option>
+                <option value="Nov">Nov</option>
+                <option value="Dec">Dec</option>
+            </select>
+
+            <!-- Reference Year -->
+            <label for="reference_year" class="block mb-2 font-bold text-gray-800">Reference Year:</label>
+            <select id="reference_year" name="reference_year" class="w-full p-2 border border-gray-300 rounded mb-4" required>
+                {% for year in range(2024, 2035) %}
+                <option value="{{ year }}">{{ year }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Value -->
+            <label for="value" class="block mb-2 font-bold text-gray-800">Value:</label>
+            <input type="number" id="value" name="value" class="w-full p-2 border border-gray-300 rounded mb-4" min="0" required>
+
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Submit</button>
+        </form>
+
+        <!-- Button to go back to the home page -->
+        <div class="text-center mb-8">
+            <a href="/landing" class="inline-flex items-center bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7m-2 2v7a2 2 0 01-2 2h-4a2 2 0 01-2-2v-7m-2 2l-2 2m0-2l-2-2" />
+                </svg>
+                Home
+            </a>
+        </div>
+
+        <!-- Table for displaying existing data -->
+        <div class="table-container">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Existing Flight Ops Data</h2>
+            <table class="table w-full border-collapse border border-gray-300">
+                <thead>
+                    <tr class="bg-blue-500 text-white">
+                        <th class="border border-gray-300 p-2">ID</th>
+                        <th class="border border-gray-300 p-2">SPI</th>
+                        <th class="border border-gray-300 p-2">Reference Month</th>
+                        <th class="border border-gray-300 p-2">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in flight_ops_data %}
+                    <tr class="bg-white text-center">
+                        <td class="border border-gray-300 p-2">{{ row[0] }}</td>
+                        <td class="border border-gray-300 p-2">{{ row[1] }}</td>
+                        <td class="border border-gray-300 p-2">{{ row[2] }}</td>
+                        <td class="border border-gray-300 p-2">{{ row[3] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

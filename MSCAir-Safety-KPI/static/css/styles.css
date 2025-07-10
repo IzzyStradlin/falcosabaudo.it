@@ -1,0 +1,180 @@
+/* General styles */
+/* Set the background image for the landing page */
+body {
+    background-image: url('{{ url_for("static", filename="images/back1.jpg") }}');
+    background-size: cover; /* Ensure the image covers the entire page */
+    background-position: center; /* Center the image */
+    background-repeat: no-repeat; /* Prevent the image from repeating */
+    height: 100vh; /* Full viewport height */
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', sans-serif; /* Optional font */
+    color: #ffffff; /* White text for contrast */
+}
+
+/* Center the content on the landing page */
+.landing-content {
+    text-align: center;
+    padding: 100px 20px;
+}
+
+/* Style the logo */
+.logo {
+    width: 150px; /* Adjust the size of the logo */
+    margin-bottom: 20px;
+}
+
+/* Header styles */
+header {
+    background-color: #001a4d; /* Dark navy blue */
+    color: #ffffff; /* White text */
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+header a {
+    text-decoration: none;
+    margin-left: auto;
+    font-size: 24px;
+    color: #ffffff; /* White color for visibility */
+    transition: color 0.3s ease;
+}
+
+header a:hover {
+    color: #cfd8e3; /* Light gray-blue hover effect */
+}
+
+/* Button styles */
+button, .btn {
+    background-color: #004f9f; /* Medium blue */
+    color: #ffffff; /* White text */
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+button:hover, .btn:hover {
+    background-color: #8db9df; /* Light blue hover */
+}
+
+/* Style the buttons */
+.btn {
+    display: inline-block;
+    background-color: #004f9f; /* Medium blue */
+    color: #ffffff; /* White text */
+    padding: 10px 20px;
+    text-decoration: none;
+    font-size: 16px;
+    border-radius: 5px;
+    margin: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.btn:hover {
+    background-color: #8db9df; /* Light blue hover effect */
+}
+
+/* Form styles */
+form {
+    background-color: #ffffff; /* White background */
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    margin: 20px auto;
+}
+
+form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+form input, form select, form textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #cfd8e3; /* Light gray-blue border */
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+/* Table styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+table th, table td {
+    border: 1px solid #cfd8e3; /* Light gray-blue border */
+    padding: 10px;
+    text-align: left;
+}
+
+table th {
+    background-color: #004f9f; /* Medium blue */
+    color: #ffffff; /* White text */
+}
+
+table tr:nth-child(even) {
+    background-color: #8db9df; /* Light blue for even rows */
+}
+
+/* Contenitore della tabella */
+.table-container {
+    margin-top: 20px; /* Sposta la tabella leggermente verso l'alto */
+    margin-bottom: 100px; /* Aggiungi spazio per evitare che la barra copra la tabella */
+}
+
+/* Stile della tabella */
+.table th, .table td {
+    color: #000; /* Colore nero per il testo */
+    text-align: center; /* Centra il testo */
+    padding: 10px; /* Spaziatura interna */
+}
+
+.table th {
+    background-color: #f0f0f0; /* Sfondo chiaro per l'intestazione */
+    font-weight: bold;
+}
+
+.table td {
+    background-color: #fff; /* Sfondo bianco per le celle */
+}
+
+/* Footer styles */
+footer {
+    background-color: #001a4d; /* Dark navy blue */
+    color: #ffffff; /* White text */
+    text-align: center;
+    padding: 10px;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    margin-bottom: 50px; /* Aggiungi spazio sotto il footer */
+}
+
+/* Background color for module_1 */
+.module-1-page {
+    background-color: #EED484; /* MSC Yellow */
+    color: #8B8178; /* warm grey for text */
+    min-height: 100vh; /* Ensure the background covers the full page */
+    padding: 20px;
+}
+
+/* Sfondo sfumato per la pagina introduttiva */
+.intro-page {
+    background: linear-gradient(135deg, #FFD700, #FFFACD); /* Sfumatura dal giallo MSC a un giallo più chiaro */
+    min-height: 100vh; /* Copre l'intera altezza della finestra */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #001a4d; /* Testo scuro per contrasto */
+    font-family: Arial, sans-serif;
+}

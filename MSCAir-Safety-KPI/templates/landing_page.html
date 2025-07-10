@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSCAir Safety KPI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="icon" type="image/png" sizes="242x206" href="{{ url_for('static', filename='images/logo.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a202c; /* Blu scuro */
+            color: #ffffff; /* Testo bianco */
+            font-family: 'Roboto', sans-serif;
+        }
+        header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #2d3748; /* Grigio scuro */
+            color: #ffffff;
+            font-weight: bold;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background-color: #4a5568; /* Grigio medio */
+            transform: scale(1.05);
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #a0aec0; /* Grigio chiaro */
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col justify-center items-center">
+    <header>
+        MSCAir Safety KPI
+    </header>
+    <main class="text-center max-w-4xl mx-auto p-8">
+        <h1 class="text-3xl md:text-4xl font-bold mb-6">MSC Air - Safety Performance Indicator</h1>
+        <p class="text-lg mb-8">Welcome to MSC Air KPI Performance Indicator App. Select your department to start inserting data.</p>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <button onclick="window.location.href='/module/1'">OCC</button>
+            <button onclick="window.location.href='/module/2'">COMPLIANCE</button>
+            <button onclick="window.location.href='/module/3'">SAFETY</button>
+            <button onclick="window.location.href='/module/4'">CAMO</button>
+            <button onclick="window.location.href='/module/7'">FLIGHT OPS</button>
+            <button onclick="window.location.href='/module/5'">GROUND OPS</button>
+            <button onclick="window.location.href='/module/6'">CREW TNG</button>
+            <button onclick="window.location.href='/module/8'">CARGO</button>
+            <button class="col-span-2 md:col-span-3" onclick="window.location.href='/reporting'">REPORTING</button>
+        </div>
+    </main>    
+    <footer>
+        © MSC Technology Italia 2025 - Built with ❤️ in Italy
+    </footer>
+</body>
+</html>
