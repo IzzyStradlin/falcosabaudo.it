@@ -1,62 +1,166 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Campionato | Falco Sabaudo</title>
-    <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestione Campionato | Falco Sabaudo</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
+
 <body class="bg-green-900 text-white">
-    <header class="text-center py-8">
-        <img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4" />
-        <h1 class="text-3xl font-bold">Gestione Campionato</h1>
-        <nav class="mt-4">
-            <a href="index.html" class="text-yellow-400 underline text-lg">← Torna alla Home</a>
-        </nav>
-    </header>
+  <header class="text-center py-8">
+    <img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4" />
+    <h1 class="text-3xl font-bold">Gestione Campionato</h1>
+    <nav class="mt-4">
+      <a href="index.html" class="text-yellow-400 underline text-lg">← Torna alla Home</a>
+    </nav>
+  </header>
 
-    <main class="px-6 max-w-4xl mx-auto">
-        <!-- Sezione Admin -->
-        <section id="admin-section" class="my-12 border-t border-yellow-400 pt-8">
-            <h2 class="text-2xl font-semibold mb-4 text-yellow-400">Sezione Admin</h2>
+  <main class="px-6 max-w-4xl mx-auto">
+    
+    <!-- Sezione di login -->
+    <section id="auth-section" class="my-12">
+      <div class="bg-green-800 p-6 rounded shadow text-center">
+        <p class="mb-4">🔐 Se sei admin, accedi per gestire i campionati:</p>
+        <input type="email" id="email" placeholder="Email" class="p-2 rounded w-64 bg-green-900 text-white border border-yellow-400 mb-2">
+        <input type="password" id="password" placeholder="Password" class="p-2 rounded w-64 bg-green-900 text-white border border-yellow-400 mb-4">
+        <br>
+        <button id="login-btn" class="bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300">Accedi</button>
+        <p id="auth-message" class="text-sm mt-2 text-red-400"></p>
+        <button id="logout-btn" class="mt-4 hidden bg-red-500 text-white px-4 py-2 rounded">Logout</button>
+      </div>
+    </section>
 
-            <div class="space-y-4">
-                <button class="bg-yellow-400 text-green-900 px-4 py-2 rounded hover:bg-yellow-300 font-semibold">➕ Crea nuovo Campionato</button>
-                <button class="bg-yellow-400 text-green-900 px-4 py-2 rounded hover:bg-yellow-300 font-semibold">🛠️ Gestisci Campionato Esistente</button>
-            </div>
-        </section>
+    <!-- Sezione Admin (visibile solo se autenticato) -->
+    <section id="admin-section" class="my-12 border-t border-yellow-400 pt-8 hidden">
+      <h2 class="text-2xl font-semibold mb-4 text-yellow-400">➕ Crea nuovo Campionato</h2>
+      <form id="create-competition-form" class="space-y-4 bg-green-800 p-6 rounded shadow">
+        <div>
+          <label class="block text-sm">Nome Campionato</label>
+          <input type="text" id="competition-name" class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400" required>
+        </div>
+        <div>
+          <label class="block text-sm">Tipo</label>
+          <select id="competition-type" class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400">
+            <option value="italiana">Italiano (andata/ritorno)</option>
+            <option value="coppa">Coppa</option>
+            <option value="gironi">Gironi</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm">Stagione</label>
+          <input type="text" id="competition-season" class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400" placeholder="es. 2024/2025" required>
+        </div>
+        <button type="submit" class="bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300">Crea</button>
+        <p id="create-message" class="text-sm mt-2 text-green-300"></p>
+      </form>
+    </section>
 
-        <!-- Sezione Pubblica -->
-        <section id="public-section" class="my-12 border-t border-yellow-400 pt-8">
-            <h2 class="text-2xl font-semibold mb-4 text-yellow-400">Classifica & Calendario</h2>
+    <!-- Sezione pubblica: lista dei campionati -->
+    <section id="public-section" class="my-12 border-t border-yellow-400 pt-8">
+      <h2 class="text-2xl font-semibold mb-4 text-yellow-400">🏆 Campionati esistenti</h2>
+      <div id="competition-list" class="space-y-2 bg-green-800 p-6 rounded shadow">
+        <p class="italic text-green-300">Caricamento in corso...</p>
+      </div>
+    </section>
 
-            <div class="space-y-6">
-                <div id="classifica" class="bg-green-800 p-4 rounded shadow">
-                    <h3 class="text-xl font-bold mb-2">🏆 Classifica</h3>
-                    <!-- Classifica dinamica qui -->
-                    <p class="italic text-green-300">In arrivo...</p>
-                </div>
+  </main>
 
-                <div id="calendario" class="bg-green-800 p-4 rounded shadow">
-                    <h3 class="text-xl font-bold mb-2">📅 Calendario Partite</h3>
-                    <!-- Calendario dinamico qui -->
-                    <p class="italic text-green-300">In arrivo...</p>
-                </div>
-            </div>
-        </section>
-    </main>
+  <footer class="text-center py-6 text-sm text-green-300">
+    © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
+  </footer>
 
-    <footer class="text-center py-6 text-sm text-green-300">
-        © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
-    </footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // usa la chiave in modo sicuro in produzione!
+      const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    <script>
-        const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-    </script>
+      const authSection = document.getElementById('auth-section');
+      const adminSection = document.getElementById('admin-section');
+      const loginBtn = document.getElementById('login-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      const authMsg = document.getElementById('auth-message');
+
+      // Login
+      loginBtn.addEventListener('click', async () => {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          authMsg.textContent = '❌ Errore di accesso';
+        } else {
+          authMsg.textContent = '';
+          loginBtn.classList.add('hidden');
+          logoutBtn.classList.remove('hidden');
+          adminSection.classList.remove('hidden');
+        }
+      });
+
+      // Logout
+      logoutBtn.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        adminSection.classList.add('hidden');
+        loginBtn.classList.remove('hidden');
+        logoutBtn.classList.add('hidden');
+      });
+
+      // Controllo sessione attiva
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          adminSection.classList.remove('hidden');
+          loginBtn.classList.add('hidden');
+          logoutBtn.classList.remove('hidden');
+        }
+      });
+
+      // Crea un nuovo campionato
+      document.getElementById('create-competition-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('competition-name').value;
+        const type = document.getElementById('competition-type').value;
+        const season = document.getElementById('competition-season').value;
+
+        const { error } = await supabase.from('competitions').insert([{ name, type, season }]);
+        const message = document.getElementById('create-message');
+
+        if (error) {
+          message.textContent = '❌ Errore durante la creazione.';
+          message.classList.remove('text-green-300');
+          message.classList.add('text-red-400');
+        } else {
+          message.textContent = '✅ Campionato creato con successo!';
+          message.classList.remove('text-red-400');
+          message.classList.add('text-green-300');
+          e.target.reset();
+          loadCompetitions(); // aggiorna lista
+        }
+      });
+
+      // Carica campionati esistenti
+      async function loadCompetitions() {
+        const list = document.getElementById('competition-list');
+        const { data, error } = await supabase.from('competitions').select('*').order('created_at', { ascending: false });
+
+        if (error || !data.length) {
+          list.innerHTML = '<p class="italic text-red-300">Errore o nessun campionato trovato.</p>';
+          return;
+        }
+
+        list.innerHTML = '';
+        data.forEach(c => {
+          const item = document.createElement('div');
+          item.className = 'border-b border-yellow-400 py-2';
+          item.innerHTML = `<strong>${c.name}</strong> (${c.type}) – <span class="text-green-300">${c.season}</span>`;
+          list.appendChild(item);
+        });
+      }
+
+      loadCompetitions();
+    });
+  </script>
 </body>
 </html>

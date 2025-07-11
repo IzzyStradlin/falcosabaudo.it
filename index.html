@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Falco Sabaudo - Club Subbuteo a Torino</title>
@@ -57,12 +56,6 @@
         <p class="text-base mt-2 max-w-xl mx-auto"> Siamo il punto di riferimento per gli appassionati di Subbuteo a Torino e in Piemonte. Organizziamo tornei e serate di gioco libero.</p>
     </header>
 
-    <script>
-        const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-    </script>
-
     <main class="px-6">
         <section id="chi-siamo" class="my-12">
             <h2 class="text-2xl font-bold mb-4">Chi Siamo</h2>
@@ -90,6 +83,13 @@
         </section>
         </nav>
 
+        <section id="rss-feed" class="my-12">
+            <h2 class="text-2xl font-bold mb-4">Ultime dal Forum</h2>
+            <div class="bg-green-800 p-4 rounded shadow">
+                <p class="mb-2">Le ultime discussioni sono disponibili direttamente sul nostro <a href="https://falcosabaudo.forumfree.it/" target="_blank" rel="noopener" class="underline text-yellow-400">Forum Ufficiale</a>.</p>
+            </div>
+        </section>
+
         <section id="galleria" class="my-12">
             <h2 class="text-2xl font-bold mb-4">Galleria</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -104,5 +104,14 @@
     <footer class="text-center py-6 text-sm text-green-300">
         © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
     </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        console.log('Supabase:', supabase);
+        // Qui puoi aggiungere altro codice che usa supabase
+    </script>
 </body>
 </html>
