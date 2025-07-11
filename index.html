@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Falco Sabaudo - Club Subbuteo a Torino</title>
@@ -48,12 +49,19 @@
         <nav class="mt-4">
             <a href="index.html" class="text-yellow-400 underline mx-2">Home</a>
             <a href="storia.html" class="text-yellow-400 underline mx-2">La nostra storia</a>
+            <a href="campionato.html" class="text-yellow-400 underline mx-2">Gestione Campionato</a>
         </nav>
         <p class="text-lg italic mt-2">Since 2007</p>
         <p class="text-lg italic mt-2">Still Play the Old Way</p>
         <h2 class="text-2xl font-semibold mt-6">Falco Sabaudo – Club Subbuteo a Torino</h2>
         <p class="text-base mt-2 max-w-xl mx-auto"> Siamo il punto di riferimento per gli appassionati di Subbuteo a Torino e in Piemonte. Organizziamo tornei e serate di gioco libero.</p>
     </header>
+
+    <script>
+        const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    </script>
 
     <main class="px-6">
         <section id="chi-siamo" class="my-12">
