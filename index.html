@@ -109,9 +109,10 @@
     <script>
         const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-        console.log('Supabase:', supabase);
-        // Qui puoi aggiungere altro codice che usa supabase
+        // Inizializza il client Supabase usando la classe importata dallo script
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        console.log('Supabase:', supabaseClient);
+        // Qui puoi aggiungere altro codice che usa supabaseClient
     </script>
 </body>
 </html>
