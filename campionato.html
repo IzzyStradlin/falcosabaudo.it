@@ -77,7 +77,8 @@
     document.addEventListener('DOMContentLoaded', function() {
       const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
       const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // usa la chiave in modo sicuro in produzione!
-      const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+      // Inizializza il client Supabase usando la classe importata dallo script
+      const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
       const authSection = document.getElementById('auth-section');
       const adminSection = document.getElementById('admin-section');
@@ -89,7 +90,7 @@
       loginBtn.addEventListener('click', async () => {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
           authMsg.textContent = '❌ Errore di accesso';
         } else {
@@ -102,14 +103,14 @@
 
       // Logout
       logoutBtn.addEventListener('click', async () => {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         adminSection.classList.add('hidden');
         loginBtn.classList.remove('hidden');
         logoutBtn.classList.add('hidden');
       });
 
       // Controllo sessione attiva
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      supabaseClient.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           adminSection.classList.remove('hidden');
           loginBtn.classList.add('hidden');
@@ -124,7 +125,7 @@
         const type = document.getElementById('competition-type').value;
         const season = document.getElementById('competition-season').value;
 
-        const { error } = await supabase.from('competitions').insert([{ name, type, season }]);
+        const { error } = await supabaseClient.from('competitions').insert([{ name, type, season }]);
         const message = document.getElementById('create-message');
 
         if (error) {
@@ -143,7 +144,7 @@
       // Carica campionati esistenti
       async function loadCompetitions() {
         const list = document.getElementById('competition-list');
-        const { data, error } = await supabase.from('competitions').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabaseClient.from('competitions').select('*').order('created_at', { ascending: false });
 
         if (error || !data.length) {
           list.innerHTML = '<p class="italic text-red-300">Errore o nessun campionato trovato.</p>';
