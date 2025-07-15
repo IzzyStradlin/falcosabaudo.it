@@ -315,22 +315,25 @@
                 return [
                     {
                         title: 'Finale Torneo OSC 2024',
-                        url: 'https://www.youtube.com/@FALCOSABAUDOTV-v5y',
-                        thumbnail: 'https://i.ytimg.com/vi/default/mqdefault.jpg',
+                        url: 'https://www.youtube.com/watch?v=abc123',
+                        videoId: 'abc123',
+                        thumbnail: 'https://i3.ytimg.com/vi/abc123/maxresdefault.jpg',
                         views: '156 visualizzazioni',
                         date: new Date()
                     },
                     {
                         title: 'Highlights Campionato',
-                        url: 'https://www.youtube.com/@FALCOSABAUDOTV-v5y',
-                        thumbnail: 'https://i.ytimg.com/vi/default/mqdefault.jpg',
+                        url: 'https://www.youtube.com/watch?v=def456',
+                        videoId: 'def456',
+                        thumbnail: 'https://i3.ytimg.com/vi/def456/maxresdefault.jpg',
                         views: '89 visualizzazioni',
                         date: new Date()
                     },
                     {
                         title: 'Tutorial Tecnica Base',
-                        url: 'https://www.youtube.com/@FALCOSABAUDOTV-v5y',
-                        thumbnail: 'https://i.ytimg.com/vi/default/mqdefault.jpg',
+                        url: 'https://www.youtube.com/watch?v=ghi789',
+                        videoId: 'ghi789',
+                        thumbnail: 'https://i3.ytimg.com/vi/ghi789/maxresdefault.jpg',
                         views: '234 visualizzazioni',
                         date: new Date()
                     }
@@ -350,16 +353,25 @@
                 youtubeFeed.innerHTML = videos.map(video => `
                     <div class="video-item p-2 rounded">
                         <a href="${video.url}" class="block" target="_blank" rel="noopener">
-                            <h4 class="video-title text-sm font-medium text-red-500 hover:text-red-400">
-                                ${video.title}
-                            </h4>
-                            <div class="flex items-center justify-between mt-1">
-                                <span class="text-xs text-green-200">
-                                    ${video.views}
-                                </span>
-                                <span class="text-xs text-green-200">
-                                    ${formatDate(video.date)}
-                                </span>
+                            <div class="flex space-x-2">
+                                <div class="flex-shrink-0">
+                                    <img src="${video.thumbnail}" alt="${video.title}" 
+                                         class="w-20 h-14 object-cover rounded" 
+                                         onerror="this.src='https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg'">
+                                </div>
+                                <div class="flex-grow min-w-0">
+                                    <h4 class="video-title text-sm font-medium text-red-500 hover:text-red-400">
+                                        ${video.title}
+                                    </h4>
+                                    <div class="flex items-center justify-between mt-1">
+                                        <span class="text-xs text-green-200">
+                                            ${video.views}
+                                        </span>
+                                        <span class="text-xs text-green-200">
+                                            ${formatDate(video.date)}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </a>
                     </div>
