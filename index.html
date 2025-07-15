@@ -40,8 +40,197 @@
       "email": "admin@falcosabaudo.it"
     }
     </script>
+    <style>
+        /* Stili personalizzati per il box forum */
+        .forum-box {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            max-width: 90vw;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .forum-box.minimized {
+            height: 60px;
+            overflow: hidden;
+        }
+        
+        .forum-box-header {
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .forum-box-header:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .forum-item {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .forum-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left-color: #fbbf24;
+            transform: translateX(5px);
+        }
+        
+        .forum-title {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+        
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+        
+        .youtube-box {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 320px;
+            max-width: 90vw;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .youtube-box.minimized {
+            height: 60px;
+            overflow: hidden;
+        }
+        
+        .video-item {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .video-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left-color: #ef4444;
+            transform: translateX(5px);
+        }
+        
+        .video-title {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+        
+        .youtube-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @media (max-width: 768px) {
+            .forum-box, .youtube-box {
+                position: relative;
+                top: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                margin: 20px 0;
+            }
+        }
+    </style>
 </head>
 <body class="bg-green-900 text-white font-sans">
+    <!-- Box YouTube in Alto a Sinistra -->
+    <div id="youtube-box" class="youtube-box bg-green-800 bg-opacity-90 text-white">
+        <div class="forum-box-header p-4 flex justify-between items-center border-b border-green-600">
+            <div class="flex items-center space-x-2">
+                <div class="youtube-dot"></div>
+                <h3 class="font-semibold text-lg">I Nostri Video</h3>
+            </div>
+            <button id="toggle-youtube" class="text-red-500 hover:text-red-400 transition-colors">
+                <svg id="youtube-toggle-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="youtube-content" class="p-4">
+            <div id="youtube-feed" class="space-y-2">
+                <div class="text-center text-green-200 py-2">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
+                    <p class="mt-2 text-sm">Caricamento...</p>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-green-600">
+                <a href="http://www.youtube.com/@FALCOSABAUDOTV-v5y" 
+                   target="_blank" 
+                   rel="noopener"
+                   class="block text-center text-red-500 hover:text-red-400 text-sm font-medium transition-colors">
+                    Vai al Canale YouTube →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Box Forum in Alto a Destra -->
+    <div id="forum-box" class="forum-box bg-green-800 bg-opacity-90 text-white">
+        <div class="forum-box-header p-4 flex justify-between items-center border-b border-green-600">
+            <div class="flex items-center space-x-2">
+                <div class="pulse-dot"></div>
+                <h3 class="font-semibold text-lg">Ultime dal Forum</h3>
+            </div>
+            <button id="toggle-forum" class="text-yellow-400 hover:text-yellow-300 transition-colors">
+                <svg id="toggle-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="forum-content" class="p-4">
+            <div id="forum-feed-mini" class="space-y-2">
+                <div class="text-center text-green-200 py-2">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-400"></div>
+                    <p class="mt-2 text-sm">Caricamento...</p>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-green-600">
+                <a href="https://falcosabaudo.forumfree.it/" 
+                   target="_blank" 
+                   rel="noopener"
+                   class="block text-center text-yellow-400 hover:text-yellow-300 text-sm font-medium transition-colors">
+                    Vai al Forum Completo →
+                </a>
+            </div>
+        </div>
+    </div>
+
     <header class="text-center py-8">
         <img src="assets/logo.svg" alt="Logo Falco Sabaudo, club Subbuteo Torino" class="mx-auto w-48 mb-4" />
         <h1 class="text-4xl font-bold">OSC Falco Sabaudo</h1>
@@ -83,13 +272,6 @@
         </section>
         </nav>
 
-        <section id="rss-feed" class="my-12">
-            <h2 class="text-2xl font-bold mb-4">Ultime dal Forum</h2>
-            <div class="bg-green-800 p-4 rounded shadow">
-                <p class="mb-2">Le ultime discussioni sono disponibili direttamente sul nostro <a href="https://falcosabaudo.forumfree.it/" target="_blank" rel="noopener" class="underline text-yellow-400">Forum Ufficiale</a>.</p>
-            </div>
-        </section>
-
         <section id="galleria" class="my-12">
             <h2 class="text-2xl font-bold mb-4">Galleria</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -105,14 +287,229 @@
         © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
-        // Inizializza il client Supabase usando la classe importata dallo script
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-        console.log('Supabase:', supabaseClient);
-        // Qui puoi aggiungere altro codice che usa supabaseClient
+        // Gestione del toggle del box YouTube
+        const youtubeBox = document.getElementById('youtube-box');
+        const toggleYoutubeButton = document.getElementById('toggle-youtube');
+        const youtubeToggleIcon = document.getElementById('youtube-toggle-icon');
+        
+        // Recupera lo stato dal localStorage
+        const isYoutubeMinimized = localStorage.getItem('youtubeBoxMinimized') === 'true';
+        if (isYoutubeMinimized) {
+            youtubeBox.classList.add('minimized');
+            youtubeToggleIcon.style.transform = 'rotate(180deg)';
+        }
+
+        toggleYoutubeButton.addEventListener('click', () => {
+            youtubeBox.classList.toggle('minimized');
+            const isNowMinimized = youtubeBox.classList.contains('minimized');
+            youtubeToggleIcon.style.transform = isNowMinimized ? 'rotate(180deg)' : '';
+            localStorage.setItem('youtubeBoxMinimized', isNowMinimized);
+        });
+
+        // Funzione per recuperare gli ultimi video da YouTube
+        async function fetchLatestVideos() {
+            try {
+                // Per ora usiamo dati statici di esempio
+                // In produzione, dovresti usare l'API di YouTube
+                return [
+                    {
+                        title: 'Finale Torneo OSC 2024',
+                        url: 'https://www.youtube.com/@FALCOSABAUDOTV-v5y',
+                        thumbnail: 'https://i.ytimg.com/vi/default/mqdefault.jpg',
+                        views: '156 visualizzazioni',
+                        date: new Date()
+                    },
+                    {
+                        title: 'Highlights Campionato',
+                        url: 'https://www.youtube.com/@FALCOSABAUDOTV-v5y',
+                        thumbnail: 'https://i.ytimg.com/vi/default/mqdefault.jpg',
+                        views: '89 visualizzazioni',
+                        date: new Date()
+                    },
+                    {
+                        title: 'Tutorial Tecnica Base',
+                        url: 'https://www.youtube.com/@FALCOSABAUDOTV-v5y',
+                        thumbnail: 'https://i.ytimg.com/vi/default/mqdefault.jpg',
+                        views: '234 visualizzazioni',
+                        date: new Date()
+                    }
+                ];
+            } catch (error) {
+                console.error('Errore nel recupero dei video:', error);
+                return [];
+            }
+        }
+
+        // Funzione per aggiornare il contenuto del box YouTube
+        async function updateYoutubeContent() {
+            const youtubeFeed = document.getElementById('youtube-feed');
+            
+            try {
+                const videos = await fetchLatestVideos();
+                youtubeFeed.innerHTML = videos.map(video => `
+                    <div class="video-item p-2 rounded">
+                        <a href="${video.url}" class="block" target="_blank" rel="noopener">
+                            <h4 class="video-title text-sm font-medium text-red-500 hover:text-red-400">
+                                ${video.title}
+                            </h4>
+                            <div class="flex items-center justify-between mt-1">
+                                <span class="text-xs text-green-200">
+                                    ${video.views}
+                                </span>
+                                <span class="text-xs text-green-200">
+                                    ${formatDate(video.date)}
+                                </span>
+                            </div>
+                        </a>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Errore nel caricamento dei video:', error);
+                youtubeFeed.innerHTML = `
+                    <div class="text-center text-red-300 py-2">
+                        <p class="text-sm">Impossibile caricare i video</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Aggiorna il contenuto di YouTube ogni 5 minuti
+        document.addEventListener('DOMContentLoaded', () => {
+            updateYoutubeContent();
+            setInterval(updateYoutubeContent, 5 * 60 * 1000);
+        });
+
+        // Gestione del toggle del box forum
+        const forumBox = document.getElementById('forum-box');
+        const toggleButton = document.getElementById('toggle-forum');
+        const toggleIcon = document.getElementById('toggle-icon');
+        
+        // Recupera lo stato dal localStorage
+        const isMinimized = localStorage.getItem('forumBoxMinimized') === 'true';
+        if (isMinimized) {
+            forumBox.classList.add('minimized');
+            toggleIcon.style.transform = 'rotate(180deg)';
+        }
+
+        toggleButton.addEventListener('click', () => {
+            forumBox.classList.toggle('minimized');
+            const isNowMinimized = forumBox.classList.contains('minimized');
+            toggleIcon.style.transform = isNowMinimized ? 'rotate(180deg)' : '';
+            localStorage.setItem('forumBoxMinimized', isNowMinimized);
+        });
+
+        // Funzione per formattare la data in italiano
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return 'Oggi ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+            } else if (diffDays === 1) {
+                return 'Ieri ' + date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+            } else {
+                return date.toLocaleDateString('it-IT', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        }
+
+        // Funzione per recuperare gli ultimi topic dal forum
+        async function fetchLatestTopics() {
+            try {
+                // Utilizziamo allorigins.win come proxy per evitare problemi CORS
+                const rssUrl = 'https://falcosabaudo.forumfree.it/rss.php?c=777270';
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+                
+                const response = await fetch(proxyUrl);
+                if (!response.ok) {
+                    throw new Error('Errore nel caricamento del feed RSS');
+                }
+                
+                const xmlText = await response.text();
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                
+                // Estraiamo gli ultimi topic dal feed RSS
+                const topics = Array.from(xmlDoc.querySelectorAll('item'))
+                    .slice(0, 3)
+                    .map(item => {
+                        const title = item.querySelector('title')?.textContent || 'Titolo non disponibile';
+                        const link = item.querySelector('link')?.textContent || 'https://falcosabaudo.forumfree.it/';
+                        const pubDate = item.querySelector('pubDate')?.textContent;
+                        const creator = item.querySelector('dc\\:creator')?.textContent || 'Autore sconosciuto';
+                        
+                        return {
+                            title: title,
+                            url: link,
+                            lastUpdate: pubDate ? new Date(pubDate) : new Date(),
+                            author: creator,
+                            description: ''
+                        };
+                    });
+                
+                return topics;
+            } catch (error) {
+                console.error('Errore nel recupero del feed:', error);
+                // Fallback ai dati statici in caso di errore
+                return [
+                    {
+                        title: 'Visita il Forum',
+                        url: 'https://falcosabaudo.forumfree.it/',
+                        lastUpdate: new Date(),
+                        author: 'Falco Sabaudo',
+                        description: 'Clicca per vedere tutte le discussioni'
+                    }
+                ];
+            }
+        }
+
+        // Funzione per aggiornare il contenuto del box forum
+        async function updateForumContent() {
+            const forumFeed = document.getElementById('forum-feed-mini');
+            
+            try {
+                const topics = await fetchLatestTopics();
+                forumFeed.innerHTML = topics.map(topic => `
+                    <div class="forum-item p-2 rounded">
+                        <a href="${topic.url}" class="block" target="_blank" rel="noopener">
+                            <h4 class="forum-title text-sm font-medium text-yellow-400 hover:text-yellow-300">
+                                ${topic.title}
+                            </h4>
+                            <div class="flex items-center justify-between mt-1">
+                                <span class="text-xs text-green-200">
+                                    ${topic.author}
+                                </span>
+                                <span class="text-xs text-green-200">
+                                    ${formatDate(topic.lastUpdate)}
+                                </span>
+                            </div>
+                        </a>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Errore nel caricamento dei topic:', error);
+                forumFeed.innerHTML = `
+                    <div class="text-center text-red-300 py-2">
+                        <p class="text-sm">Impossibile caricare le discussioni</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Aggiorna il contenuto ogni 5 minuti
+        document.addEventListener('DOMContentLoaded', () => {
+            updateForumContent();
+            setInterval(updateForumContent, 5 * 60 * 1000);
+        });
     </script>
 </body>
 </html>
