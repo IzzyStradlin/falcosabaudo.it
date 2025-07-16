@@ -310,34 +310,56 @@
         // Funzione per recuperare gli ultimi video da YouTube
         async function fetchLatestVideos() {
             try {
-                // Per ora usiamo dati statici di esempio
-                // In produzione, dovresti usare l'API di YouTube
-                return [
-                    {
-                        title: 'Finale Torneo OSC 2024',
-                        url: 'https://www.youtube.com/watch?v=abc123',
-                        videoId: 'abc123',
-                        thumbnail: 'https://i3.ytimg.com/vi/abc123/maxresdefault.jpg',
-                        views: '156 visualizzazioni',
-                        date: new Date()
-                    },
-                    {
-                        title: 'Highlights Campionato',
-                        url: 'https://www.youtube.com/watch?v=def456',
-                        videoId: 'def456',
-                        thumbnail: 'https://i3.ytimg.com/vi/def456/maxresdefault.jpg',
-                        views: '89 visualizzazioni',
-                        date: new Date()
-                    },
-                    {
-                        title: 'Tutorial Tecnica Base',
-                        url: 'https://www.youtube.com/watch?v=ghi789',
-                        videoId: 'ghi789',
-                        thumbnail: 'https://i3.ytimg.com/vi/ghi789/maxresdefault.jpg',
-                        views: '234 visualizzazioni',
-                        date: new Date()
-                    }
-                ];
+                const API_KEY = 'AIzaSyBcOj2wxMwY1mkZFwNRKuqhasdUo0Q1Sas';
+                
+                // Prima otteniamo l'ID del canale dall'handle
+                const channelHandle = '@FALCOSABAUDOTV-v5y';
+                const channelInfoResponse = await fetch(
+                    `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&q=${channelHandle}&type=channel&part=snippet`
+                );
+
+                if (!channelInfoResponse.ok) {
+                    throw new Error('Errore nel recupero delle informazioni del canale');
+                }
+
+                const channelInfo = await channelInfoResponse.json();
+                const CHANNEL_ID = channelInfo.items[0].snippet.channelId;
+
+                // Ora otteniamo gli ultimi video dal canale
+                const channelResponse = await fetch(
+                    `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=3`
+                );
+
+                if (!channelResponse.ok) {
+                    throw new Error('Errore nel recupero dei video dal canale');
+                }
+
+                const channelData = await channelResponse.json();
+                
+                // Otteniamo i dettagli completi per ogni video
+                const videoIds = channelData.items.map(item => item.id.videoId).join(',');
+                const videosResponse = await fetch(
+                    `https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${videoIds}&part=snippet,statistics`
+                );
+
+                if (!videosResponse.ok) {
+                    throw new Error('Errore nel recupero dei dettagli dei video');
+                }
+
+                const videosData = await videosResponse.json();
+
+                // Formatta i video con tutti i dati necessari
+                const entries = videosData.items.map(video => ({
+                    title: video.snippet.title,
+                    url: `https://www.youtube.com/watch?v=${video.id}`,
+                    videoId: video.id,
+                    thumbnail: video.snippet.thumbnails.medium.url,
+                    views: `${parseInt(video.statistics.viewCount).toLocaleString('it-IT')} visualizzazioni`,
+                    date: new Date(video.snippet.publishedAt)
+                }));
+
+                return entries;
+                
             } catch (error) {
                 console.error('Errore nel recupero dei video:', error);
                 return [];
