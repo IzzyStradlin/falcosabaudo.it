@@ -287,6 +287,7 @@
         © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
     </footer>
 
+    <script src="config.js"></script>
     <script>
         // Gestione del toggle del box YouTube
         const youtubeBox = document.getElementById('youtube-box');
@@ -310,7 +311,7 @@
         // Funzione per recuperare gli ultimi video da YouTube
         async function fetchLatestVideos() {
             try {
-                const API_KEY = 'AIzaSyBcOj2wxMwY1mkZFwNRKuqhasdUo0Q1Sas';
+                const API_KEY = config.YOUTUBE_API_KEY;
                 
                 // Prima otteniamo l'ID del canale dall'handle
                 const channelHandle = '@FALCOSABAUDOTV-v5y';
