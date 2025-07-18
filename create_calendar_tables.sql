@@ -1,6 +1,9 @@
 -- Script SQL semplificato per creare solo le tabelle del calendario
 -- Usa questo se hai già le tabelle competitions, teams, team_competitions
 
+-- Aggiunta colonna is_active per campionati esistenti (se non esiste già)
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
 -- Elimina le tabelle esistenti per ricrearle correttamente
 DROP TABLE IF EXISTS matches CASCADE;
 DROP TABLE IF EXISTS matchdays CASCADE;

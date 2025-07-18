@@ -190,9 +190,15 @@
                 <!-- Selezione campionato -->
                 <div class="bg-green-800 p-6 rounded shadow mb-8">
                     <label class="block text-sm mb-2">Seleziona Campionato</label>
-                    <select id="standings-competition-select" class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400">
+                    <select id="standings-competition-select" class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400 mb-4">
                         <option value="">Seleziona un campionato...</option>
                     </select>
+                    <button id="recalculate-standings" class="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-500 mr-2">
+                        🔄 Ricalcola Classifica
+                    </button>
+                    <button id="recalculate-all-standings" class="bg-orange-600 text-white px-4 py-2 rounded font-semibold hover:bg-orange-500">
+                        🔄 Ricalcola Tutte le Classifiche
+                    </button>
                 </div>
 
                 <!-- Classifica -->
@@ -326,9 +332,14 @@
                             </select>
                         </div>
                     </div>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
-                        Aggiorna Info
-                    </button>
+                    <div class="flex gap-2">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                            Aggiorna Info
+                        </button>
+                        <button type="button" id="edit-results-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+                            Modifica Risultati
+                        </button>
+                    </div>
                 </form>
 
                 <!-- Warning per numeri dispari nella modifica -->
@@ -369,6 +380,38 @@
                 <div class="flex justify-end gap-2">
                     <button id="close-edit-competition" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
                         Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per modifica risultati campionato -->
+    <div id="edit-results-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Modifica Risultati - <span id="edit-results-competition-name"></span></h3>
+                    <button id="close-edit-results-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Seleziona Giornata</label>
+                    <select id="edit-results-matchday-select" class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="">Caricamento giornate...</option>
+                    </select>
+                </div>
+
+                <div id="edit-results-matches-container" class="space-y-4">
+                    <p class="text-gray-500 italic">Seleziona una giornata per vedere le partite</p>
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button id="close-edit-results" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                        Chiudi
+                    </button>
+                    <button id="save-all-results" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded hidden">
+                        Salva Tutti i Risultati
                     </button>
                 </div>
             </div>
@@ -444,10 +487,24 @@
         }
 
         async function getAllCompetitions() {
-            const { data, error } = await supabaseClient
+            // Prima proviamo con is_active, se fallisce proviamo senza
+            let { data, error } = await supabaseClient
                 .from('competitions')
                 .select('*')
+                .eq('is_active', true)
                 .order('created_at', { ascending: false });
+            
+            // Se l'errore è per la colonna is_active, prova senza filtro
+            if (error && error.message.includes('is_active')) {
+                const { data: allData, error: allError } = await supabaseClient
+                    .from('competitions')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (allError) throw new Error(allError.message);
+                return allData;
+            }
+            
             if (error) throw new Error(error.message);
             return data;
         }
@@ -463,10 +520,23 @@
         }
 
         async function deleteCompetition(id) {
-            const { error } = await supabaseClient
+            // Prima proviamo il soft delete, se fallisce eliminiamo fisicamente
+            let { error } = await supabaseClient
                 .from('competitions')
-                .delete()
+                .update({ is_active: false })
                 .eq('id', id);
+            
+            // Se l'errore è per la colonna is_active, elimina fisicamente
+            if (error && error.message.includes('is_active')) {
+                const { error: deleteError } = await supabaseClient
+                    .from('competitions')
+                    .delete()
+                    .eq('id', id);
+                
+                if (deleteError) throw new Error(deleteError.message);
+                return;
+            }
+            
             if (error) throw new Error(error.message);
         }
 
@@ -541,6 +611,19 @@
         }
 
         async function updateMatchResult(matchId, homeScore, awayScore) {
+            // Prima otteniamo i dati della partita per il competitionId
+            const { data: matchData, error: matchError } = await supabaseClient
+                .from('matches')
+                .select(`
+                    *,
+                    matchdays(competition_id)
+                `)
+                .eq('id', matchId)
+                .single();
+            
+            if (matchError) throw new Error(matchError.message);
+            
+            // Aggiorniamo il risultato
             const { data, error } = await supabaseClient
                 .from('matches')
                 .update({ 
@@ -551,29 +634,26 @@
                 })
                 .eq('id', matchId)
                 .select();
+            
             if (error) throw new Error(error.message);
+            
+            // Aggiorniamo automaticamente la classifica
+            const competitionId = matchData.matchdays.competition_id;
+            await updateStandings(competitionId);
+            
             return data[0];
         }
 
-        async function getMatchdaysByCompetition(competitionId) {
+        // Funzione per controllare se esiste già un calendario
+        async function checkIfCalendarExists(competitionId) {
             const { data, error } = await supabaseClient
                 .from('matchdays')
-                .select(`
-                    *,
-                    matches (
-                        id,
-                        home_score,
-                        away_score,
-                        status,
-                        played_at,
-                        home_team:teams!matches_home_team_id_fkey (id, name),
-                        away_team:teams!matches_away_team_id_fkey (id, name)
-                    )
-                `)
+                .select('id')
                 .eq('competition_id', competitionId)
-                .order('round_number', { ascending: true });
+                .limit(1);
+            
             if (error) throw new Error(error.message);
-            return data;
+            return data && data.length > 0;
         }
 
         async function getStandings(competitionId) {
@@ -663,90 +743,127 @@
         }
 
         async function updateStandings(competitionId) {
+            console.log('🔄 Inizio ricalcolo classifica per competizione:', competitionId);
+            
             // Prima resettiamo le statistiche
             const teams = await getTeamsByCompetition(competitionId);
+            console.log('👥 Squadre trovate:', teams.length);
             
+            // Inizializziamo le statistiche per tutte le squadre
+            const teamStats = {};
             for (const team of teams) {
-                await supabaseClient
-                    .from('standings')
-                    .upsert({
-                        team_id: team.id,
-                        competition_id: competitionId,
-                        games_played: 0,
-                        wins: 0,
-                        draws: 0,
-                        losses: 0,
-                        goals_for: 0,
-                        goals_against: 0,
-                        goal_difference: 0,
-                        points: 0
-                    });
+                teamStats[team.id] = {
+                    team_id: team.id,
+                    competition_id: competitionId,
+                    games_played: 0,
+                    wins: 0,
+                    draws: 0,
+                    losses: 0,
+                    goals_for: 0,
+                    goals_against: 0,
+                    goal_difference: 0,
+                    points: 0
+                };
             }
 
-            // Poi calcoliamo le statistiche dalle partite giocate
+            // Calcoliamo le statistiche dalle partite giocate
             const matchdays = await getMatchdaysByCompetition(competitionId);
+            console.log('📅 Giornate trovate:', matchdays.length);
+            
+            let totalMatches = 0;
+            let completedMatches = 0;
             
             for (const matchday of matchdays) {
+                console.log(`📅 Giornata ${matchday.round_number}: ${matchday.matches.length} partite`);
+                
                 for (const match of matchday.matches) {
+                    totalMatches++;
+                    console.log(`⚽ Partita ${match.id}: ${match.home_team.name} vs ${match.away_team.name}, Status: ${match.status}, Risultato: ${match.home_score}-${match.away_score}`);
+                    
                     if (match.status === 'completed') {
+                        completedMatches++;
                         const homeScore = match.home_score || 0;
                         const awayScore = match.away_score || 0;
                         
+                        console.log(`✅ Partita completata: ${match.home_team.name} ${homeScore}-${awayScore} ${match.away_team.name}`);
+                        
                         // Aggiorna statistiche squadra di casa
-                        await updateTeamStats(match.home_team.id, competitionId, homeScore, awayScore, true);
+                        const homeStats = teamStats[match.home_team.id];
+                        if (homeStats) {
+                            homeStats.games_played++;
+                            homeStats.goals_for += homeScore;
+                            homeStats.goals_against += awayScore;
+                            
+                            if (homeScore > awayScore) {
+                                homeStats.wins++;
+                                homeStats.points += 3;
+                                console.log(`🏆 ${match.home_team.name} ha vinto (+3 punti)`);
+                            } else if (homeScore === awayScore) {
+                                homeStats.draws++;
+                                homeStats.points += 1;
+                                console.log(`🤝 ${match.home_team.name} ha pareggiato (+1 punto)`);
+                            } else {
+                                homeStats.losses++;
+                                console.log(`💔 ${match.home_team.name} ha perso (0 punti)`);
+                            }
+                        }
                         
                         // Aggiorna statistiche squadra ospite
-                        await updateTeamStats(match.away_team.id, competitionId, awayScore, homeScore, false);
+                        const awayStats = teamStats[match.away_team.id];
+                        if (awayStats) {
+                            awayStats.games_played++;
+                            awayStats.goals_for += awayScore;
+                            awayStats.goals_against += homeScore;
+                            
+                            if (awayScore > homeScore) {
+                                awayStats.wins++;
+                                awayStats.points += 3;
+                                console.log(`🏆 ${match.away_team.name} ha vinto (+3 punti)`);
+                            } else if (awayScore === homeScore) {
+                                awayStats.draws++;
+                                awayStats.points += 1;
+                                console.log(`🤝 ${match.away_team.name} ha pareggiato (+1 punto)`);
+                            } else {
+                                awayStats.losses++;
+                                console.log(`💔 ${match.away_team.name} ha perso (0 punti)`);
+                            }
+                        }
                     }
                 }
             }
-        }
-
-        async function updateTeamStats(teamId, competitionId, goalsFor, goalsAgainst, isHome) {
-            const { data } = await supabaseClient
-                .from('standings')
-                .select('*')
-                .eq('team_id', teamId)
-                .eq('competition_id', competitionId)
-                .single();
-
-            const currentStats = data || {
-                games_played: 0, wins: 0, draws: 0, losses: 0,
-                goals_for: 0, goals_against: 0, points: 0
-            };
-
-            let points = 0;
-            let wins = currentStats.wins;
-            let draws = currentStats.draws;
-            let losses = currentStats.losses;
-
-            if (goalsFor > goalsAgainst) {
-                wins++;
-                points = 3;
-            } else if (goalsFor === goalsAgainst) {
-                draws++;
-                points = 1;
-            } else {
-                losses++;
-                points = 0;
-            }
-
-            const newStats = {
-                team_id: teamId,
-                competition_id: competitionId,
-                games_played: currentStats.games_played + 1,
-                wins: wins,
-                draws: draws,
-                losses: losses,
-                goals_for: currentStats.goals_for + goalsFor,
-                goals_against: currentStats.goals_against + goalsAgainst,
-                goal_difference: (currentStats.goals_for + goalsFor) - (currentStats.goals_against + goalsAgainst),
-                points: currentStats.points + points
-            };
-
+            
+            console.log(`📊 Totale partite: ${totalMatches}, Completate: ${completedMatches}`);
+            
+            // Prima eliminiamo tutti i record esistenti per questa competizione
             await supabaseClient
                 .from('standings')
-                .upsert(newStats);
+                .delete()
+                .eq('competition_id', competitionId);
+            
+            // Poi inseriamo i nuovi record
+            const standingsToInsert = [];
+            for (const teamId in teamStats) {
+                const stats = teamStats[teamId];
+                stats.goal_difference = stats.goals_for - stats.goals_against;
+                
+                console.log(`📋 ${teams.find(t => t.id === teamId)?.name}: ${stats.games_played} partite, ${stats.wins}V ${stats.draws}N ${stats.losses}P, ${stats.goals_for}-${stats.goals_against}, ${stats.points} punti`);
+                
+                standingsToInsert.push(stats);
+            }
+            
+            // Inserimento batch di tutti i record
+            if (standingsToInsert.length > 0) {
+                const { error } = await supabaseClient
+                    .from('standings')
+                    .insert(standingsToInsert);
+                    
+                if (error) {
+                    console.error('❌ Errore nell\'inserimento:', error);
+                    throw error;
+                }
+            }
+            
+            console.log('✅ Ricalcolo classifica completato');
         }
 
         // Funzione per generare calendario all'italiana (andata e ritorno)
@@ -1203,8 +1320,12 @@
                                     
                                     <div class="flex items-center space-x-2">
                                         ${match.status === 'completed' ? 
-                                            `<span class="text-green-300 font-bold">${match.home_score || 0} - ${match.away_score || 0}</span>` :
-                                            `<button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}')" 
+                                            `<span class="text-green-300 font-bold">${match.home_score || 0} - ${match.away_score || 0}</span>
+                                             <button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}', ${match.home_score || 0}, ${match.away_score || 0})" 
+                                                     class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm">
+                                                Modifica
+                                            </button>` :
+                                            `<button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}', null, null)" 
                                                      class="bg-yellow-400 text-green-900 px-3 py-1 rounded text-sm hover:bg-yellow-300">
                                                 Inserisci Risultato
                                             </button>`
@@ -1430,7 +1551,7 @@
 
         // Funzioni globali per i callback
         window.removeCompetition = async function(competitionId) {
-            if (!confirm('Sei sicuro di voler eliminare questo campionato? Questa azione non può essere annullata.')) return;
+            if (!confirm('Sei veramente sicuro di voler eliminare questo campionato?\n\nATTENZIONE: Il campionato verrà disattivato e non sarà più visibile, ma i dati rimarranno nel database per eventuali ripristini futuri.\n\nPremere OK per confermare l\'eliminazione.')) return;
             
             try {
                 await deleteCompetition(competitionId);
@@ -1451,6 +1572,225 @@
             await updateEditTeamsList(competitionId);
         }
 
+        // Funzione per aprire il modal di modifica risultati
+        window.openEditResultsModal = async function(competitionId, competitionName) {
+            const modal = document.getElementById('edit-results-modal');
+            modal.dataset.competitionId = competitionId;
+            document.getElementById('edit-results-competition-name').textContent = competitionName;
+            modal.classList.remove('hidden');
+            await loadEditResultsMatchdays(competitionId);
+        }
+
+        // Carica le giornate per la modifica risultati
+        async function loadEditResultsMatchdays(competitionId) {
+            try {
+                const { data: matchdays, error } = await supabaseClient
+                    .from('matchdays')
+                    .select('*')
+                    .eq('competition_id', competitionId)
+                    .order('round_number');
+
+                if (error) throw error;
+
+                const select = document.getElementById('edit-results-matchday-select');
+                
+                if (matchdays.length === 0) {
+                    select.innerHTML = '<option value="">Nessuna giornata trovata</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">Seleziona una giornata</option>' + 
+                    matchdays.map(md => `<option value="${md.id}">Giornata ${md.round_number}</option>`).join('');
+                
+            } catch (error) {
+                console.error('Errore nel caricamento delle giornate:', error);
+                showError('Errore nel caricamento delle giornate: ' + error.message);
+            }
+        }
+
+        // Carica le partite di una giornata specifica per la modifica
+        async function loadEditResultsMatches(matchdayId) {
+            try {
+                const { data: matches, error } = await supabaseClient
+                    .from('matches')
+                    .select(`
+                        *,
+                        home_team:teams!matches_home_team_id_fkey(id, name),
+                        away_team:teams!matches_away_team_id_fkey(id, name)
+                    `)
+                    .eq('matchday_id', matchdayId)
+                    .order('created_at');
+
+                if (error) throw error;
+
+                const container = document.getElementById('edit-results-matches-container');
+                
+                if (matches.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 italic">Nessuna partita trovata per questa giornata</p>';
+                    return;
+                }
+
+                container.innerHTML = matches.map(match => `
+                    <div class="bg-gray-50 p-4 rounded-lg border">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="font-semibold text-gray-800">
+                                ${match.home_team.name} vs ${match.away_team.name}
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                ${match.home_score !== null && match.away_score !== null 
+                                    ? `Risultato: ${match.home_score} - ${match.away_score}` 
+                                    : 'Non giocata'}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Gol ${match.home_team.name}</label>
+                                <input type="number" id="edit-home-score-${match.id}" 
+                                       value="${match.home_score || ''}" 
+                                       min="0" max="99" 
+                                       class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Gol ${match.away_team.name}</label>
+                                <input type="number" id="edit-away-score-${match.id}" 
+                                       value="${match.away_score || ''}" 
+                                       min="0" max="99" 
+                                       class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                        </div>
+                        <div class="mt-3 flex justify-end">
+                            <button onclick="saveIndividualResult('${match.id}')" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                                Salva Risultato
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Mostra il pulsante per salvare tutti i risultati
+                document.getElementById('save-all-results').classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Errore nel caricamento delle partite:', error);
+                showError('Errore nel caricamento delle partite: ' + error.message);
+            }
+        }
+
+        // Salva il risultato di una singola partita
+        window.saveIndividualResult = async function(matchId) {
+            try {
+                const homeScore = document.getElementById(`edit-home-score-${matchId}`).value;
+                const awayScore = document.getElementById(`edit-away-score-${matchId}`).value;
+
+                if (homeScore === '' || awayScore === '') {
+                    showError('Inserisci entrambi i punteggi');
+                    return;
+                }
+
+                await updateMatchResult(matchId, parseInt(homeScore), parseInt(awayScore));
+                
+                // Aggiorna automaticamente tutte le visualizzazioni
+                const competitionId = document.getElementById('edit-results-modal').dataset.competitionId;
+                if (competitionId) {
+                    // Aggiorna la classifica pubblica se è la stessa competizione
+                    const publicCompetitionId = document.getElementById('public-competition-select').value;
+                    if (publicCompetitionId === competitionId) {
+                        await loadPublicStandings(competitionId);
+                        await loadPublicStats(competitionId);
+                    }
+                    
+                    // Aggiorna la classifica admin se è la stessa competizione
+                    const adminCompetitionId = document.getElementById('standings-competition-select').value;
+                    if (adminCompetitionId === competitionId) {
+                        await loadStandings(competitionId);
+                    }
+                    
+                    // Aggiorna il calendario admin se è la stessa competizione
+                    const calendarCompetitionId = document.getElementById('calendar-competition-select').value;
+                    if (calendarCompetitionId === competitionId) {
+                        await loadCalendar(competitionId);
+                    }
+                }
+                
+                showSuccess('Risultato salvato con successo');
+                
+            } catch (error) {
+                console.error('Errore nel salvataggio del risultato:', error);
+                showError('Errore nel salvataggio del risultato: ' + error.message);
+            }
+        }
+
+        // Salva tutti i risultati della giornata
+        window.saveAllResults = async function() {
+            try {
+                const matchdayId = document.getElementById('edit-results-matchday-select').value;
+                if (!matchdayId) {
+                    showError('Seleziona una giornata');
+                    return;
+                }
+
+                // Ottieni tutte le partite della giornata
+                const { data: matches, error } = await supabaseClient
+                    .from('matches')
+                    .select('id')
+                    .eq('matchday_id', matchdayId);
+
+                if (error) throw error;
+
+                let savedCount = 0;
+                let errorCount = 0;
+
+                for (const match of matches) {
+                    try {
+                        const homeScore = document.getElementById(`edit-home-score-${match.id}`).value;
+                        const awayScore = document.getElementById(`edit-away-score-${match.id}`).value;
+
+                        if (homeScore !== '' && awayScore !== '') {
+                            await updateMatchResult(match.id, parseInt(homeScore), parseInt(awayScore));
+                            savedCount++;
+                        }
+                    } catch (error) {
+                        console.error(`Errore nel salvataggio della partita ${match.id}:`, error);
+                        errorCount++;
+                    }
+                }
+
+                // Aggiorna automaticamente tutte le visualizzazioni
+                const competitionId = document.getElementById('edit-results-modal').dataset.competitionId;
+                if (competitionId) {
+                    // Aggiorna la classifica pubblica se è la stessa competizione
+                    const publicCompetitionId = document.getElementById('public-competition-select').value;
+                    if (publicCompetitionId === competitionId) {
+                        await loadPublicStandings(competitionId);
+                        await loadPublicStats(competitionId);
+                    }
+                    
+                    // Aggiorna la classifica admin se è la stessa competizione
+                    const adminCompetitionId = document.getElementById('standings-competition-select').value;
+                    if (adminCompetitionId === competitionId) {
+                        await loadStandings(competitionId);
+                    }
+                    
+                    // Aggiorna il calendario admin se è la stessa competizione
+                    const calendarCompetitionId = document.getElementById('calendar-competition-select').value;
+                    if (calendarCompetitionId === competitionId) {
+                        await loadCalendar(competitionId);
+                    }
+                }
+
+                if (savedCount > 0) {
+                    showSuccess(`${savedCount} risultati salvati con successo`);
+                }
+                if (errorCount > 0) {
+                    showError(`${errorCount} errori nel salvataggio`);
+                }
+                
+            } catch (error) {
+                console.error('Errore nel salvataggio dei risultati:', error);
+                showError('Errore nel salvataggio dei risultati: ' + error.message);
+            }
+        }
+
         window.removeTeamFromCompetitionInModal = async function(teamId, competitionId) {
             if (!confirm('Sei sicuro di voler rimuovere questa squadra dal campionato?')) return;
             
@@ -1468,7 +1808,7 @@
             }
         }
 
-        window.openMatchResultModal = function(matchId, homeTeam, awayTeam, homeTeamId, awayTeamId) {
+        window.openMatchResultModal = function(matchId, homeTeam, awayTeam, homeTeamId, awayTeamId, homeScore = null, awayScore = null) {
             const modal = document.getElementById('match-result-modal');
             modal.dataset.matchId = matchId;
             modal.dataset.homeTeamId = homeTeamId;
@@ -1477,8 +1817,10 @@
             document.getElementById('match-teams').textContent = `${homeTeam} vs ${awayTeam}`;
             document.getElementById('home-team-label').textContent = homeTeam;
             document.getElementById('away-team-label').textContent = awayTeam;
-            document.getElementById('home-score').value = '';
-            document.getElementById('away-score').value = '';
+            
+            // Imposta i valori esistenti se ci sono
+            document.getElementById('home-score').value = homeScore !== null ? homeScore : '';
+            document.getElementById('away-score').value = awayScore !== null ? awayScore : '';
             
             modal.classList.remove('hidden');
         }
@@ -1689,6 +2031,35 @@
                 document.getElementById('cancel-teams-creation').addEventListener('click', closeTeamsCreationModal);
                 document.getElementById('close-edit-modal').addEventListener('click', closeEditModal);
                 document.getElementById('close-edit-competition').addEventListener('click', closeEditModal);
+                
+                // Event listeners per il modal di modifica risultati
+                document.getElementById('edit-results-btn').addEventListener('click', () => {
+                    const competitionId = document.getElementById('edit-competition-modal').dataset.competitionId;
+                    const competitionName = document.getElementById('edit-competition-name').value;
+                    openEditResultsModal(competitionId, competitionName);
+                });
+                
+                document.getElementById('close-edit-results-modal').addEventListener('click', () => {
+                    document.getElementById('edit-results-modal').classList.add('hidden');
+                });
+                
+                document.getElementById('close-edit-results').addEventListener('click', () => {
+                    document.getElementById('edit-results-modal').classList.add('hidden');
+                });
+                
+                document.getElementById('edit-results-matchday-select').addEventListener('change', (e) => {
+                    const matchdayId = e.target.value;
+                    if (matchdayId) {
+                        loadEditResultsMatches(matchdayId);
+                    } else {
+                        document.getElementById('edit-results-matches-container').innerHTML = 
+                            '<p class="text-gray-500 italic">Seleziona una giornata per vedere le partite</p>';
+                        document.getElementById('save-all-results').classList.add('hidden');
+                    }
+                });
+                
+                document.getElementById('save-all-results').addEventListener('click', saveAllResults);
+                
                 document.getElementById('close-match-result-modal').addEventListener('click', () => {
                     document.getElementById('match-result-modal').classList.add('hidden');
                 });
@@ -1735,17 +2106,111 @@
                         return;
                     }
                     
-                    if (confirm('Vuoi generare il calendario per questo campionato? Questa azione sovrascriverà il calendario esistente.')) {
-                        await generateCalendarForCompetition(competitionId);
+                    // Controlla se esiste già un calendario
+                    const existingCalendar = await checkIfCalendarExists(competitionId);
+                    if (existingCalendar) {
+                        if (!confirm('ATTENZIONE: Esiste già un calendario per questo campionato!\n\nRigenerando il calendario verranno ELIMINATI tutti i risultati inseriti e le giornate esistenti.\n\nSei sicuro di voler continuare?')) {
+                            return;
+                        }
+                    } else {
+                        if (!confirm('Vuoi generare il calendario per questo campionato?')) {
+                            return;
+                        }
+                    }
+                    
+                    await generateCalendarForCompetition(competitionId);
+                });
+
+                // Event listeners per il ricalcolo delle classifiche
+                document.getElementById('recalculate-standings').addEventListener('click', async () => {
+                    const competitionId = document.getElementById('standings-competition-select').value;
+                    if (!competitionId) {
+                        alert('Seleziona un campionato');
+                        return;
+                    }
+                    
+                    if (!confirm('Vuoi ricalcolare la classifica per questo campionato?')) {
+                        return;
+                    }
+                    
+                    try {
+                        await updateStandings(competitionId);
+                        await loadStandings(competitionId);
+                        
+                        // Aggiorna anche la classifica pubblica se è la stessa competizione
+                        const publicCompetitionId = document.getElementById('public-competition-select').value;
+                        if (publicCompetitionId === competitionId) {
+                            await loadPublicStandings(competitionId);
+                            await loadPublicStats(competitionId);
+                        }
+                        
+                        alert('Classifica ricalcolata con successo!');
+                    } catch (error) {
+                        console.error('Errore nel ricalcolo della classifica:', error);
+                        alert('Errore nel ricalcolo della classifica: ' + error.message);
+                    }
+                });
+
+                document.getElementById('recalculate-all-standings').addEventListener('click', async () => {
+                    if (!confirm('ATTENZIONE: Vuoi ricalcolare TUTTE le classifiche di TUTTI i campionati?\n\nQuesta operazione potrebbe richiedere diversi secondi.')) {
+                        return;
+                    }
+                    
+                    try {
+                        // Ottieni tutti i campionati
+                        const competitions = await getAllCompetitions();
+                        let successCount = 0;
+                        let errorCount = 0;
+                        
+                        for (const competition of competitions) {
+                            try {
+                                await updateStandings(competition.id);
+                                successCount++;
+                            } catch (error) {
+                                console.error(`Errore nel ricalcolo della classifica per ${competition.name}:`, error);
+                                errorCount++;
+                            }
+                        }
+                        
+                        // Aggiorna le visualizzazioni correnti
+                        const currentAdminCompetition = document.getElementById('standings-competition-select').value;
+                        if (currentAdminCompetition) {
+                            await loadStandings(currentAdminCompetition);
+                        }
+                        
+                        const currentPublicCompetition = document.getElementById('public-competition-select').value;
+                        if (currentPublicCompetition) {
+                            await loadPublicStandings(currentPublicCompetition);
+                            await loadPublicStats(currentPublicCompetition);
+                        }
+                        
+                        alert(`Operazione completata!\n\n✅ Successi: ${successCount}\n❌ Errori: ${errorCount}`);
+                    } catch (error) {
+                        console.error('Errore nel ricalcolo di tutte le classifiche:', error);
+                        alert('Errore nel ricalcolo di tutte le classifiche: ' + error.message);
                     }
                 });
 
                 document.getElementById('calendar-competition-select').addEventListener('change', async (e) => {
                     const competitionId = e.target.value;
+                    const generateBtn = document.getElementById('generate-calendar');
+                    
                     if (competitionId) {
                         await loadCalendar(competitionId);
+                        
+                        // Controlla se esiste già un calendario e aggiorna il pulsante
+                        const existingCalendar = await checkIfCalendarExists(competitionId);
+                        if (existingCalendar) {
+                            generateBtn.textContent = 'Rigenera Calendario';
+                            generateBtn.className = 'bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-700';
+                        } else {
+                            generateBtn.textContent = 'Genera Calendario';
+                            generateBtn.className = 'bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300';
+                        }
                     } else {
                         document.getElementById('calendar-content').innerHTML = '<p class="text-gray-400 italic">Seleziona un campionato per visualizzare il calendario</p>';
+                        generateBtn.textContent = 'Genera Calendario';
+                        generateBtn.className = 'bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300';
                     }
                 });
 
@@ -1776,11 +2241,24 @@
                     try {
                         await updateMatchResult(matchId, homeScore, awayScore);
                         
-                        // Aggiorna la classifica
+                        // Aggiorna automaticamente tutte le visualizzazioni
                         const competitionId = document.getElementById('calendar-competition-select').value;
                         if (competitionId) {
                             await updateStandings(competitionId);
                             await loadCalendar(competitionId);
+                            
+                            // Aggiorna la classifica pubblica se è la stessa competizione
+                            const publicCompetitionId = document.getElementById('public-competition-select').value;
+                            if (publicCompetitionId === competitionId) {
+                                await loadPublicStandings(competitionId);
+                                await loadPublicStats(competitionId);
+                            }
+                            
+                            // Aggiorna la classifica admin se è la stessa competizione
+                            const adminCompetitionId = document.getElementById('standings-competition-select').value;
+                            if (adminCompetitionId === competitionId) {
+                                await loadStandings(competitionId);
+                            }
                         }
                         
                         modal.classList.add('hidden');

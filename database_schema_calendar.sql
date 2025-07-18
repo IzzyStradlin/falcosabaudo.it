@@ -8,8 +8,12 @@ CREATE TABLE IF NOT EXISTS competitions (
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL DEFAULT 'all-against-all',
     season VARCHAR(20) DEFAULT '2024/2025',
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Aggiunta colonna is_active per campionati esistenti (se non esiste già)
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
 CREATE TABLE IF NOT EXISTS teams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

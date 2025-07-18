@@ -1,8 +1,11 @@
 # Istruzioni per completare l'implementazione del calendario
 
-## ⚠️ ERRORE RISOLTO: "column matchday_id does not exist"
+## ⚠️ NUOVE FUNZIONALITÀ AGGIUNTE
 
-Il sistema ora include tutte le funzionalità richieste. L'errore è stato risolto creando script SQL corretti.
+### 🔧 **Modifiche Recenti**
+- **Modifica risultati**: Gli admin possono ora modificare tutti i risultati delle giornate di un campionato esistente
+- **Eliminazione sicura**: Conferma popup e soft delete (i campionati vengono marcati come non attivi invece di essere eliminati)
+- **Colonna is_active**: Aggiunta alla tabella competitions per gestire campionati attivi/non attivi
 
 ## 🔧 Come Procedere - 3 Opzioni
 
@@ -30,10 +33,12 @@ Per controllare lo stato attuale:
 - Crea tutte le tabelle (base + calendario)
 - Include trigger automatici
 - Configura politiche di sicurezza RLS
+- Aggiunge colonna `is_active` per soft delete
 - Script completo e sicuro
 
 ### **`create_calendar_tables.sql`**
 - Crea solo le tabelle del calendario
+- Aggiunge colonna `is_active` se mancante
 - Usa `DROP TABLE IF EXISTS` per ricreare
 - Include indici e trigger
 - Più veloce se hai già le tabelle base
