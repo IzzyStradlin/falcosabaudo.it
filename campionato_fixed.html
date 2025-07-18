@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Campionato - Falco Sabaudo</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-green-900 text-white">
+    <header class="text-center py-8">
+        <img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4" />
+        <h1 class="text-3xl font-bold">Gestione Campionato</h1>
+        <nav class="mt-4">
+            <a href="index.html" class="text-yellow-400 underline text-lg">← Torna alla Home</a>
+        </nav>
+    </header>
+
+    <main class="px-6 max-w-4xl mx-auto">
+        
+        <!-- Sezione di login -->
+        <section id="auth-section" class="my-12">
+            <div class="bg-green-800 p-6 rounded shadow text-center">
+                <p class="mb-4">🔐 Se sei admin, accedi per gestire i campionati:</p>
+                <input type="email" id="email" placeholder="Email" class="p-2 rounded w-64 bg-green-900 text-white border border-yellow-400 mb-2">
+                <input type="password" id="password" placeholder="Password" class="p-2 rounded w-64 bg-green-900 text-white border border-yellow-400 mb-4">
+                <br>
+                <button id="login-btn" class="bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300">Accedi</button>
+                <p id="auth-message" class="text-sm mt-2"></p>
+                <button id="logout-btn" class="mt-4 hidden bg-red-500 text-white px-4 py-2 rounded">Logout</button>
+            </div>
+        </section>
+
+        <!-- Sezione Admin (visibile solo se autenticato) -->
+        <section id="admin-section" class="my-12 border-t border-yellow-400 pt-8 hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-yellow-400">Gestione Campionati</h2>
+            
+            <!-- Form creazione campionato -->
+            <div class="bg-green-800 p-6 rounded shadow mb-8">
+                <h3 class="text-xl font-semibold mb-4">Crea Nuovo Campionato</h3>
+                <form id="competition-form" class="space-y-4">
+                    <div class="flex gap-4 items-end">
+                        <div class="flex-1">
+                            <label class="block text-sm mb-1">Nome Campionato</label>
+                            <input type="text" id="competition-name" placeholder="Nome del campionato" required 
+                                   class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-1">Tipo</label>
+                            <select id="competition-type" class="p-2 rounded bg-green-900 text-white border border-yellow-400">
+                                <option value="all-against-all">Campionato all'italiana</option>
+                                <option value="elimination">Eliminazione diretta</option>
+                                <option value="group-stage">Gironi</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="bg-yellow-400 text-green-900 px-6 py-2 rounded font-semibold hover:bg-yellow-300">
+                            Crea Campionato
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lista campionati -->
+            <div class="bg-green-800 p-6 rounded shadow">
+                <h3 class="text-xl font-semibold mb-4">Campionati Esistenti</h3>
+                <div id="competitions-list" class="space-y-3">
+                    <p class="text-gray-400 italic">Caricamento campionati...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center py-6 text-sm text-green-300">
+        © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
+    </footer>
+
+    <script>
+        console.log('🚀 Campionato: Script iniziato');
+        
+        // Variabili globali
+        let supabaseClient = null;
+
+        // Inizializzazione Supabase
+        async function initSupabase() {
+            console.log('Inizializzazione Supabase...');
+            
+            // Aspetta che Supabase sia caricato
+            let attempts = 0;
+            while (!window.supabase && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            
+            if (!window.supabase) {
+                throw new Error('Supabase non caricato');
+            }
+            
+            console.log('✅ Supabase libreria caricata');
+            
+            // Crea client
+            const url = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+            const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+            
+            supabaseClient = window.supabase.createClient(url, key);
+            console.log('✅ Client Supabase creato');
+            
+            return supabaseClient;
+        }
+
+        // Funzioni per l'autenticazione
+        async function login(email, password) {
+            console.log('🔐 Login per:', email);
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email.trim(),
+                password: password
+            });
+            if (error) throw new Error(error.message);
+            return data;
+        }
+
+        async function logout() {
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) throw new Error(error.message);
+        }
+
+        async function getCurrentUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            return user;
+        }
+
+        // Funzioni per i campionati
+        async function createCompetition(name, type, season) {
+            const { data, error } = await supabaseClient
+                .from('competitions')
+                .insert([{ name, type, season }])
+                .select();
+            if (error) throw new Error(error.message);
+            return data[0];
+        }
+
+        async function getAllCompetitions() {
+            const { data, error } = await supabaseClient
+                .from('competitions')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        }
+
+        async function deleteCompetition(id) {
+            const { error } = await supabaseClient
+                .from('competitions')
+                .delete()
+                .eq('id', id);
+            if (error) throw new Error(error.message);
+        }
+
+        // Funzioni UI
+        function showError(message) {
+            const authMessage = document.getElementById('auth-message');
+            authMessage.textContent = message;
+            authMessage.className = 'text-sm mt-2 text-red-400';
+        }
+
+        function showSuccess(message) {
+            const authMessage = document.getElementById('auth-message');
+            authMessage.textContent = message;
+            authMessage.className = 'text-sm mt-2 text-green-300';
+        }
+
+        function getTypeLabel(type) {
+            const labels = {
+                'all-against-all': 'Campionato all\'italiana',
+                'elimination': 'Eliminazione diretta',
+                'group-stage': 'Gironi'
+            };
+            return labels[type] || type;
+        }
+
+        async function loadCompetitions() {
+            try {
+                const competitions = await getAllCompetitions();
+                const competitionsList = document.getElementById('competitions-list');
+                
+                if (competitions.length === 0) {
+                    competitionsList.innerHTML = '<p class="text-gray-400 italic">Nessun campionato creato</p>';
+                    return;
+                }
+                
+                competitionsList.innerHTML = competitions.map(comp => `
+                    <div class="bg-green-800 p-4 rounded-lg flex justify-between items-center">
+                        <div>
+                            <h3 class="font-semibold">${comp.name}</h3>
+                            <p class="text-sm text-gray-300">Tipo: ${getTypeLabel(comp.type)} | Stagione: ${comp.season || '2024/2025'}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="removeCompetition('${comp.id}')" 
+                                    class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+                                Elimina
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Errore nel caricamento dei campionati:', error);
+                showError('Errore nel caricamento dei campionati: ' + error.message);
+            }
+        }
+
+        // Funzione globale per eliminare
+        window.removeCompetition = async function(competitionId) {
+            if (!confirm('Sei sicuro di voler eliminare questo campionato? Questa azione non può essere annullata.')) return;
+            
+            try {
+                await deleteCompetition(competitionId);
+                await loadCompetitions();
+                showSuccess('Campionato eliminato con successo');
+            } catch (error) {
+                showError('Errore nell\'eliminazione del campionato: ' + error.message);
+            }
+        }
+
+        // Inizializzazione pagina
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initSupabase();
+                console.log('✅ Inizializzazione completata');
+                
+                // Elementi DOM
+                const adminSection = document.getElementById('admin-section');
+                const emailInput = document.getElementById('email');
+                const passwordInput = document.getElementById('password');
+                const loginBtn = document.getElementById('login-btn');
+                const logoutBtn = document.getElementById('logout-btn');
+
+                // Controllo iniziale autenticazione
+                try {
+                    const user = await getCurrentUser();
+                    if (user) {
+                        adminSection.classList.remove('hidden');
+                        logoutBtn.classList.remove('hidden');
+                        showSuccess(`Benvenuto ${user.email}`);
+                        await loadCompetitions();
+                    }
+                } catch (error) {
+                    console.error('Errore controllo utente:', error);
+                }
+
+                // Login
+                loginBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const email = emailInput.value.trim();
+                    const password = passwordInput.value;
+
+                    console.log('🔐 Tentativo di login per:', email);
+
+                    if (!email || !password) {
+                        showError('Inserisci email e password');
+                        return;
+                    }
+
+                    loginBtn.textContent = 'Accesso...';
+                    loginBtn.disabled = true;
+
+                    try {
+                        console.log('📡 Chiamata login...');
+                        const result = await login(email, password);
+                        console.log('✅ Login riuscito:', result);
+                        
+                        adminSection.classList.remove('hidden');
+                        logoutBtn.classList.remove('hidden');
+                        emailInput.value = '';
+                        passwordInput.value = '';
+                        showSuccess('Accesso effettuato con successo');
+                        await loadCompetitions();
+                    } catch (error) {
+                        console.error('❌ Errore login:', error);
+                        showError('Errore di accesso: ' + (error.message || 'Credenziali non valide'));
+                    } finally {
+                        loginBtn.textContent = 'Accedi';
+                        loginBtn.disabled = false;
+                    }
+                });
+
+                // Logout
+                logoutBtn.addEventListener('click', async () => {
+                    try {
+                        await logout();
+                        adminSection.classList.add('hidden');
+                        logoutBtn.classList.add('hidden');
+                        showSuccess('Logout effettuato con successo');
+                    } catch (error) {
+                        showError('Errore durante il logout: ' + error.message);
+                    }
+                });
+
+                // Creazione campionato
+                document.getElementById('competition-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const name = document.getElementById('competition-name').value.trim();
+                    const type = document.getElementById('competition-type').value;
+                    
+                    if (!name) {
+                        showError('Inserisci il nome del campionato');
+                        return;
+                    }
+
+                    try {
+                        const competition = await createCompetition(name, type, '2024/2025');
+                        await loadCompetitions();
+                        e.target.reset();
+                        showSuccess('Campionato creato con successo: ' + competition.name);
+                    } catch (error) {
+                        showError('Errore nella creazione del campionato: ' + error.message);
+                    }
+                });
+                
+            } catch (error) {
+                console.error('❌ Errore inizializzazione:', error);
+                document.getElementById('auth-message').innerHTML = '❌ Errore di inizializzazione: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

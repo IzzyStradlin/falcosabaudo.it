@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Semplice</title>
+    <style>
+        body { background: #1f2937; color: white; padding: 20px; font-family: Arial, sans-serif; }
+        .container { max-width: 500px; margin: 0 auto; }
+        input, button { width: 100%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; }
+        input { background: #374151; color: white; }
+        button { background: #10b981; color: white; cursor: pointer; }
+        button:hover { background: #059669; }
+        .result { margin-top: 20px; padding: 10px; border-radius: 5px; }
+        .success { background: #065f46; }
+        .error { background: #7f1d1d; }
+        .debug { background: #1f2937; border: 1px solid #374151; padding: 10px; margin-top: 20px; max-height: 200px; overflow-y: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Login Supabase</h1>
+        <p>Stato: <span id="status">Caricamento...</span></p>
+        
+        <form id="loginForm">
+            <input type="email" id="email" placeholder="Email" value="admin@falcosabaudo.it" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Test Login</button>
+        </form>
+        
+        <div id="result"></div>
+        <div id="debug" class="debug">Debug log:<br></div>
+    </div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        console.log('Script iniziato');
+        
+        const statusEl = document.getElementById('status');
+        const resultEl = document.getElementById('result');
+        const debugEl = document.getElementById('debug');
+        
+        function addDebug(msg) {
+            console.log(msg);
+            debugEl.innerHTML += new Date().toLocaleTimeString() + ': ' + msg + '<br>';
+            debugEl.scrollTop = debugEl.scrollHeight;
+        }
+        
+        function showResult(msg, isSuccess = false) {
+            resultEl.innerHTML = msg;
+            resultEl.className = 'result ' + (isSuccess ? 'success' : 'error');
+        }
+        
+        // Variabile globale per il client
+        let supabaseClient = null;
+        
+        // Inizializzazione
+        async function init() {
+            try {
+                addDebug('Inizializzazione...');
+                statusEl.textContent = 'Inizializzazione...';
+                
+                // Controlla se Supabase è caricato
+                let attempts = 0;
+                while (!window.supabase && attempts < 50) {
+                    await new Promise(r => setTimeout(r, 100));
+                    attempts++;
+                }
+                
+                if (!window.supabase) {
+                    throw new Error('Supabase non caricato dopo 5 secondi');
+                }
+                
+                addDebug('✅ Libreria Supabase caricata');
+                
+                // Crea client
+                const url = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+                const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+                
+                supabaseClient = window.supabase.createClient(url, key);
+                addDebug('✅ Client creato');
+                
+                // Test connessione
+                const { data, error } = await supabaseClient.auth.getUser();
+                if (error && error.message !== 'Auth session missing!') {
+                    addDebug('⚠️ Warning: ' + error.message);
+                } else {
+                    addDebug('✅ Connessione OK');
+                }
+                
+                statusEl.textContent = 'Pronto';
+                showResult('Sistema pronto per il test', true);
+                
+            } catch (error) {
+                addDebug('❌ Errore: ' + error.message);
+                statusEl.textContent = 'Errore';
+                showResult('Errore inizializzazione: ' + error.message, false);
+            }
+        }
+        
+        // Login
+        async function testLogin(email, password) {
+            try {
+                addDebug('🔐 Tentativo login: ' + email);
+                
+                if (!supabaseClient) {
+                    throw new Error('Client non inizializzato');
+                }
+                
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
+                
+                if (error) {
+                    addDebug('❌ Errore login: ' + error.message);
+                    showResult('❌ ' + error.message, false);
+                } else {
+                    addDebug('✅ Login riuscito!');
+                    showResult('✅ Login riuscito per: ' + data.user.email, true);
+                }
+                
+            } catch (error) {
+                addDebug('❌ Eccezione: ' + error.message);
+                showResult('❌ Eccezione: ' + error.message, false);
+            }
+        }
+        
+        // Event listener
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            testLogin(email, password);
+        });
+        
+        // Avvia inizializzazione
+        addDebug('Script caricato, avvio init...');
+        init();
+    </script>
+</body>
+</html>

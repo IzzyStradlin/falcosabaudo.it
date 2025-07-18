@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Campionato - Falco Sabaudo</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-green-900 text-white">
+    <header class="text-center py-8">
+        <img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4" />
+        <h1 class="text-3xl font-bold">Gestione Campionato</h1>
+        <nav class="mt-4">
+            <a href="index.html" class="text-yellow-400 underline text-lg">← Torna alla Home</a>
+        </nav>
+    </header>
+
+    <main class="px-6 max-w-4xl mx-auto">
+        
+        <!-- Sezione di login -->
+        <section id="auth-section" class="my-12">
+            <div class="bg-green-800 p-6 rounded shadow text-center">
+                <p class="mb-4">🔐 Se sei admin, accedi per gestire i campionati:</p>
+                <input type="email" id="email" placeholder="Email" class="p-2 rounded w-64 bg-green-900 text-white border border-yellow-400 mb-2">
+                <input type="password" id="password" placeholder="Password" class="p-2 rounded w-64 bg-green-900 text-white border border-yellow-400 mb-4">
+                <br>
+                <button id="login-btn" class="bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300">Accedi</button>
+                <p id="auth-message" class="text-sm mt-2"></p>
+                <button id="logout-btn" class="mt-4 hidden bg-red-500 text-white px-4 py-2 rounded">Logout</button>
+            </div>
+        </section>
+
+        <!-- Sezione Admin (visibile solo se autenticato) -->
+        <section id="admin-section" class="my-12 border-t border-yellow-400 pt-8 hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-yellow-400">Gestione Campionati</h2>
+            
+            <!-- Form creazione campionato -->
+            <div class="bg-green-800 p-6 rounded shadow mb-8">
+                <h3 class="text-xl font-semibold mb-4">Crea Nuovo Campionato</h3>
+                <form id="competition-form" class="space-y-4">
+                    <div class="flex gap-4 items-end">
+                        <div class="flex-1">
+                            <label class="block text-sm mb-1">Nome Campionato</label>
+                            <input type="text" id="competition-name" placeholder="Nome del campionato" required 
+                                   class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-1">Tipo</label>
+                            <select id="competition-type" class="p-2 rounded bg-green-900 text-white border border-yellow-400">
+                                <option value="all-against-all">Campionato all'italiana</option>
+                                <option value="elimination">Eliminazione diretta</option>
+                                <option value="group-stage">Gironi</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="bg-yellow-400 text-green-900 px-6 py-2 rounded font-semibold hover:bg-yellow-300">
+                            Crea Campionato
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lista campionati -->
+            <div class="bg-green-800 p-6 rounded shadow">
+                <h3 class="text-xl font-semibold mb-4">Campionati Esistenti</h3>
+                <div id="competitions-list" class="space-y-3">
+                    <p class="text-gray-400 italic">Caricamento campionati...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal per aggiungere squadre dopo creazione campionato -->
+    <div id="teams-creation-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Aggiungi Squadre al Campionato</h3>
+                    <button id="close-teams-creation-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-50 rounded">
+                    <p class="text-gray-700 mb-1"><strong>Campionato:</strong> <span id="creation-competition-name" class="font-semibold"></span></p>
+                    <p class="text-gray-700"><strong>Tipo:</strong> <span id="creation-competition-type" class="font-semibold"></span></p>
+                </div>
+
+                <!-- Warning per numeri dispari -->
+                <div id="odd-teams-warning" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 hidden">
+                    <div class="flex">
+                        <div class="py-1">
+                            <svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM9 11V9h2v6H9v-4zm0-6h2v2H9V5z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-bold">Attenzione!</p>
+                            <p class="text-sm">Un campionato all'italiana con un numero dispari di squadre richiederà che una squadra riposi in ogni giornata.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="team-creation-form" class="mb-4">
+                    <div class="flex gap-2">
+                        <input type="text" id="new-team-name" placeholder="Nome squadra" required 
+                               class="flex-1 px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                            Aggiungi
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-2">Squadre aggiunte (<span id="teams-count">0</span>):</h4>
+                    <div id="creation-teams-list" class="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
+                        <p class="text-gray-400 italic">Nessuna squadra aggiunta</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button id="cancel-teams-creation" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                        Annulla
+                    </button>
+                    <button id="finish-competition-creation" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                        Finalizza Campionato
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per modifica campionato esistente -->
+    <div id="edit-competition-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Modifica Campionato</h3>
+                    <button id="close-edit-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <form id="edit-competition-form" class="mb-6 p-4 bg-gray-50 rounded">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2">Nome Campionato</label>
+                            <input type="text" id="edit-competition-name" required 
+                                   class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2">Tipo</label>
+                            <select id="edit-competition-type" 
+                                    class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="all-against-all">Campionato all'italiana</option>
+                                <option value="elimination">Eliminazione diretta</option>
+                                <option value="group-stage">Gironi</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                        Aggiorna Info
+                    </button>
+                </form>
+
+                <!-- Warning per numeri dispari nella modifica -->
+                <div id="edit-odd-teams-warning" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 hidden">
+                    <div class="flex">
+                        <div class="py-1">
+                            <svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM9 11V9h2v6H9v-4zm0-6h2v2H9V5z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-bold">Attenzione!</p>
+                            <p class="text-sm">Un campionato all'italiana con un numero dispari di squadre richiederà che una squadra riposi in ogni giornata.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-800 mb-2">Gestione Squadre</h4>
+                    <form id="edit-team-form" class="mb-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="edit-new-team-name" placeholder="Nome nuova squadra" 
+                                   class="flex-1 px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                                Aggiungi
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mb-4">
+                        <h5 class="font-medium text-gray-700 mb-2">Squadre nel campionato (<span id="edit-teams-count">0</span>):</h5>
+                        <div id="edit-teams-list" class="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
+                            <p class="text-gray-400 italic">Caricamento squadre...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button id="close-edit-competition" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                        Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-6 text-sm text-green-300">
+        © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
+    </footer>
+
+    <script>
+        console.log('🚀 Campionato: Script iniziato');
+        
+        // Variabili globali
+        let supabaseClient = null;
+        let AuthManager = null;
+        let CompetitionManager = null;
+        let TeamManager = null;
+
+        // Inizializzazione Supabase
+        async function initSupabase() {
+            console.log('Inizializzazione Supabase...');
+            
+            // Aspetta che Supabase sia caricato
+            let attempts = 0;
+            while (!window.supabase && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            
+            if (!window.supabase) {
+                throw new Error('Supabase non caricato');
+            }
+            
+            console.log('✅ Supabase libreria caricata');
+            
+            // Crea client
+            const url = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+            const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+            
+            supabaseClient = window.supabase.createClient(url, key);
+            console.log('✅ Client Supabase creato');
+            
+            // Crea managers
+            createManagers();
+            
+            return supabaseClient;
+        }
+
+        // Crea i manager
+        function createManagers() {
+            // AuthManager
+            AuthManager = {
+                async login(email, password) {
+                    console.log('🔐 Login per:', email);
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email: email.trim(),
+                        password: password
+                    });
+                    if (error) throw new Error(error.message);
+                    return data;
+                },
+                
+                async logout() {
+                    const { error } = await supabaseClient.auth.signOut();
+                    if (error) throw new Error(error.message);
+                },
+                
+                async getCurrentUser() {
+                    const { data: { user } } = await supabaseClient.auth.getUser();
+                    return user;
+                }
+            };
+
+            // CompetitionManager
+            CompetitionManager = {
+                async createCompetition(name, type, season) {
+                    const { data, error } = await supabaseClient
+                        .from('competitions')
+                        .insert([{ name, type, season }])
+                        .select();
+                    if (error) throw new Error(error.message);
+                    return data[0];
+                },
+                
+                async getAllCompetitions() {
+                    const { data, error } = await supabaseClient
+                        .from('competitions')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    if (error) throw new Error(error.message);
+                    return data;
+                },
+                
+                async updateCompetition(id, updates) {
+                    const { data, error } = await supabaseClient
+                        .from('competitions')
+                        .update(updates)
+                        .eq('id', id)
+                        .select();
+                    if (error) throw new Error(error.message);
+                    return data[0];
+                },
+                
+                async deleteCompetition(id) {
+                    const { error } = await supabaseClient
+                        .from('competitions')
+                        .delete()
+                        .eq('id', id);
+                    if (error) throw new Error(error.message);
+                }
+            };
+
+            // TeamManager
+            TeamManager = {
+                async createTeam(name, competitionId) {
+                    const { data: teamData, error: teamError } = await supabaseClient
+                        .from('teams')
+                        .insert([{ name }])
+                        .select();
+                    if (teamError) throw new Error(teamError.message);
+                    
+                    if (competitionId) {
+                        await this.linkTeamToCompetition(teamData[0].id, competitionId);
+                    }
+                    
+                    return teamData[0];
+                },
+                
+                async linkTeamToCompetition(teamId, competitionId) {
+                    const { error } = await supabaseClient
+                        .from('team_competitions')
+                        .insert([{ team_id: teamId, competition_id: competitionId }]);
+                    if (error) throw new Error(error.message);
+                },
+                
+                async getTeamsByCompetition(competitionId) {
+                    const { data, error } = await supabaseClient
+                        .from('team_competitions')
+                        .select(`
+                            teams (
+                                id,
+                                name,
+                                created_at
+                            )
+                        `)
+                        .eq('competition_id', competitionId);
+                    if (error) throw new Error(error.message);
+                    return data.map(item => item.teams);
+                },
+                
+                async removeTeamFromCompetition(teamId, competitionId) {
+                    const { error } = await supabaseClient
+                        .from('team_competitions')
+                        .delete()
+                        .eq('team_id', teamId)
+                        .eq('competition_id', competitionId);
+                    if (error) throw new Error(error.message);
+                }
+            };
+            
+            console.log('✅ Manager creati');
+        }
+
+        // Inizializzazione pagina
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initSupabase();
+                console.log('✅ Inizializzazione completata');
+                
+                // Elementi DOM
+                const adminSection = document.getElementById('admin-section');
+                const emailInput = document.getElementById('email');
+                const passwordInput = document.getElementById('password');
+                const loginBtn = document.getElementById('login-btn');
+                const logoutBtn = document.getElementById('logout-btn');
+
+                function showError(message) {
+                    const authMessage = document.getElementById('auth-message');
+                    authMessage.textContent = message;
+                    authMessage.className = 'text-sm mt-2 text-red-400';
+                }
+
+                function showSuccess(message) {
+                    const authMessage = document.getElementById('auth-message');
+                    authMessage.textContent = message;
+                    authMessage.className = 'text-sm mt-2 text-green-300';
+                }
+
+                // Controllo iniziale autenticazione
+                try {
+                    const user = await AuthManager.getCurrentUser();
+                    if (user) {
+                        adminSection.classList.remove('hidden');
+                        logoutBtn.classList.remove('hidden');
+                        showSuccess(`Benvenuto ${user.email}`);
+                        await loadCompetitions();
+                    }
+                } catch (error) {
+                    console.error('Errore controllo utente:', error);
+                }
+
+                // Login
+                loginBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const email = emailInput.value.trim();
+                    const password = passwordInput.value;
+
+                    console.log('🔐 Tentativo di login per:', email);
+
+                    if (!email || !password) {
+                        showError('Inserisci email e password');
+                        return;
+                    }
+
+                    loginBtn.textContent = 'Accesso...';
+                    loginBtn.disabled = true;
+
+                    try {
+                        console.log('📡 Chiamata AuthManager.login...');
+                        const result = await AuthManager.login(email, password);
+                        console.log('✅ Login riuscito:', result);
+                        
+                        adminSection.classList.remove('hidden');
+                        logoutBtn.classList.remove('hidden');
+                        emailInput.value = '';
+                        passwordInput.value = '';
+                        showSuccess('Accesso effettuato con successo');
+                        await loadCompetitions();
+                    } catch (error) {
+                        console.error('❌ Errore login:', error);
+                        showError('Errore di accesso: ' + (error.message || 'Credenziali non valide'));
+                    } finally {
+                        loginBtn.textContent = 'Accedi';
+                        loginBtn.disabled = false;
+                    }
+                });
+
+                // Resto dei listeners e funzioni
+                setupEventListeners();
+                
+            } catch (error) {
+                console.error('❌ Errore inizializzazione:', error);
+                document.getElementById('auth-message').innerHTML = '❌ Errore di inizializzazione: ' + error.message;
+            }
+        });
+
+        // Setup degli event listeners
+        function setupEventListeners() {
+
+            // Logout
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthManager.logout();
+                    adminSection.classList.add('hidden');
+                    logoutBtn.classList.add('hidden');
+                    showSuccess('Logout effettuato con successo');
+                } catch (error) {
+                    showError('Errore durante il logout: ' + error.message);
+                }
+            });
+
+            // Creazione campionato
+            document.getElementById('competition-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const name = document.getElementById('competition-name').value.trim();
+                const type = document.getElementById('competition-type').value;
+                
+                if (!name) {
+                    alert('Inserisci il nome del campionato');
+                    return;
+                }
+
+                try {
+                    const competition = await CompetitionManager.createCompetition(name, type, '2024/2025');
+                    await loadCompetitions();
+                    e.target.reset();
+                    openTeamsCreationModal(competition.id, competition.name, competition.type);
+                } catch (error) {
+                    alert('Errore nella creazione del campionato: ' + error.message);
+                }
+            });
+
+            // Aggiunta squadre durante creazione
+            document.getElementById('team-creation-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const teamName = document.getElementById('new-team-name').value.trim();
+                const competitionId = document.getElementById('teams-creation-modal').dataset.competitionId;
+                
+                if (!teamName) return;
+                
+                try {
+                    await TeamManager.createTeam(teamName, competitionId);
+                    document.getElementById('new-team-name').value = '';
+                    await updateCreationTeamsList(competitionId);
+                } catch (error) {
+                    alert('Errore nell\'aggiunta della squadra: ' + error.message);
+                }
+            });
+
+            // Aggiunta squadre durante modifica
+            document.getElementById('edit-team-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const teamName = document.getElementById('edit-new-team-name').value.trim();
+                const competitionId = document.getElementById('edit-competition-modal').dataset.competitionId;
+                
+                if (!teamName) return;
+                
+                try {
+                    await TeamManager.createTeam(teamName, competitionId);
+                    document.getElementById('edit-new-team-name').value = '';
+                    await updateEditTeamsList(competitionId);
+                } catch (error) {
+                    alert('Errore nell\'aggiunta della squadra: ' + error.message);
+                }
+            });
+
+            // Modifica campionato
+            document.getElementById('edit-competition-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const competitionId = document.getElementById('edit-competition-modal').dataset.competitionId;
+                const name = document.getElementById('edit-competition-name').value.trim();
+                const type = document.getElementById('edit-competition-type').value;
+                
+                if (!name) {
+                    alert('Inserisci il nome del campionato');
+                    return;
+                }
+
+                try {
+                    await CompetitionManager.updateCompetition(competitionId, { name, type });
+                    await loadCompetitions();
+                    await updateEditTeamsList(competitionId);
+                    alert('Campionato aggiornato con successo');
+                } catch (error) {
+                    alert('Errore nell\'aggiornamento del campionato: ' + error.message);
+                }
+            });
+
+            // Event listeners chiusura modals
+            document.getElementById('close-teams-creation-modal').addEventListener('click', closeTeamsCreationModal);
+            document.getElementById('cancel-teams-creation').addEventListener('click', closeTeamsCreationModal);
+            document.getElementById('close-edit-modal').addEventListener('click', closeEditModal);
+            document.getElementById('close-edit-competition').addEventListener('click', closeEditModal);
+
+            document.getElementById('finish-competition-creation').addEventListener('click', () => {
+                closeTeamsCreationModal();
+                alert('Campionato creato con successo!');
+            });
+
+            // Funzioni
+            async function loadCompetitions() {
+                try {
+                    const competitions = await CompetitionManager.getAllCompetitions();
+                    const competitionsList = document.getElementById('competitions-list');
+                    
+                    if (competitions.length === 0) {
+                        competitionsList.innerHTML = '<p class="text-gray-400 italic">Nessun campionato creato</p>';
+                        return;
+                    }
+                    
+                    competitionsList.innerHTML = competitions.map(comp => `
+                        <div class="bg-green-800 p-4 rounded-lg flex justify-between items-center">
+                            <div>
+                                <h3 class="font-semibold">${comp.name}</h3>
+                                <p class="text-sm text-gray-300">Tipo: ${getTypeLabel(comp.type)} | Stagione: ${comp.season || '2024/2025'}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="openEditModal('${comp.id}', '${comp.name}', '${comp.type}', '${comp.season || '2024/2025'}')" 
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                                    Modifica
+                                </button>
+                                <button onclick="deleteCompetition('${comp.id}')" 
+                                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+                                    Elimina
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Errore nel caricamento dei campionati:', error);
+                }
+            }
+
+            function getTypeLabel(type) {
+                const labels = {
+                    'all-against-all': 'Campionato all\'italiana',
+                    'elimination': 'Eliminazione diretta',
+                    'group-stage': 'Gironi'
+                };
+                return labels[type] || type;
+            }
+
+            function openTeamsCreationModal(competitionId, competitionName, competitionType) {
+                const modal = document.getElementById('teams-creation-modal');
+                modal.dataset.competitionId = competitionId;
+                document.getElementById('creation-competition-name').textContent = competitionName;
+                document.getElementById('creation-competition-type').textContent = getTypeLabel(competitionType);
+                modal.classList.remove('hidden');
+                updateCreationTeamsList(competitionId);
+            }
+
+            function closeTeamsCreationModal() {
+                document.getElementById('teams-creation-modal').classList.add('hidden');
+                document.getElementById('new-team-name').value = '';
+            }
+
+            async function updateCreationTeamsList(competitionId) {
+                try {
+                    const teams = await TeamManager.getTeamsByCompetition(competitionId);
+                    const teamsList = document.getElementById('creation-teams-list');
+                    const teamsCount = document.getElementById('teams-count');
+                    const warning = document.getElementById('odd-teams-warning');
+                    const competitionType = document.getElementById('creation-competition-type').textContent;
+                    
+                    teamsCount.textContent = teams.length;
+                    
+                    if (competitionType.includes('italiana') && teams.length > 0 && teams.length % 2 !== 0) {
+                        warning.classList.remove('hidden');
+                    } else {
+                        warning.classList.add('hidden');
+                    }
+                    
+                    if (teams.length === 0) {
+                        teamsList.innerHTML = '<p class="text-gray-400 italic">Nessuna squadra aggiunta</p>';
+                        return;
+                    }
+                    
+                    teamsList.innerHTML = teams.map(team => `
+                        <div class="flex justify-between items-center p-2 bg-gray-100 rounded">
+                            <span class="text-gray-800">${team.name}</span>
+                            <button onclick="removeTeamFromCompetition('${team.id}', '${competitionId}')" 
+                                    class="text-red-600 hover:text-red-800 font-bold">×</button>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Errore nel caricamento delle squadre:', error);
+                }
+            }
+
+            window.openEditModal = async function(competitionId, competitionName, competitionType, competitionSeason) {
+                const modal = document.getElementById('edit-competition-modal');
+                modal.dataset.competitionId = competitionId;
+                document.getElementById('edit-competition-name').value = competitionName;
+                document.getElementById('edit-competition-type').value = competitionType;
+                modal.classList.remove('hidden');
+                await updateEditTeamsList(competitionId);
+            }
+
+            function closeEditModal() {
+                document.getElementById('edit-competition-modal').classList.add('hidden');
+                document.getElementById('edit-new-team-name').value = '';
+            }
+
+            async function updateEditTeamsList(competitionId) {
+                try {
+                    const teams = await TeamManager.getTeamsByCompetition(competitionId);
+                    const teamsList = document.getElementById('edit-teams-list');
+                    const teamsCount = document.getElementById('edit-teams-count');
+                    const warning = document.getElementById('edit-odd-teams-warning');
+                    const competitionType = document.getElementById('edit-competition-type').value;
+                    
+                    teamsCount.textContent = teams.length;
+                    
+                    if (competitionType === 'all-against-all' && teams.length > 0 && teams.length % 2 !== 0) {
+                        warning.classList.remove('hidden');
+                    } else {
+                        warning.classList.add('hidden');
+                    }
+                    
+                    if (teams.length === 0) {
+                        teamsList.innerHTML = '<p class="text-gray-400 italic">Nessuna squadra nel campionato</p>';
+                        return;
+                    }
+                    
+                    teamsList.innerHTML = teams.map(team => `
+                        <div class="flex justify-between items-center p-2 bg-gray-100 rounded">
+                            <span class="text-gray-800">${team.name}</span>
+                            <button onclick="removeTeamFromCompetition('${team.id}', '${competitionId}')" 
+                                    class="text-red-600 hover:text-red-800 font-bold">×</button>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Errore nel caricamento delle squadre:', error);
+                }
+            }
+
+            window.removeTeamFromCompetition = async function(teamId, competitionId) {
+                if (!confirm('Sei sicuro di voler rimuovere questa squadra dal campionato?')) return;
+                
+                try {
+                    await TeamManager.removeTeamFromCompetition(teamId, competitionId);
+                    
+                    if (!document.getElementById('teams-creation-modal').classList.contains('hidden')) {
+                        await updateCreationTeamsList(competitionId);
+                    }
+                    if (!document.getElementById('edit-competition-modal').classList.contains('hidden')) {
+                        await updateEditTeamsList(competitionId);
+                    }
+                } catch (error) {
+                    alert('Errore nella rimozione della squadra: ' + error.message);
+                }
+            }
+
+            window.deleteCompetition = async function(competitionId) {
+                if (!confirm('Sei sicuro di voler eliminare questo campionato? Questa azione non può essere annullata.')) return;
+                
+                try {
+                    await CompetitionManager.deleteCompetition(competitionId);
+                    await loadCompetitions();
+                    alert('Campionato eliminato con successo');
+                } catch (error) {
+                    alert('Errore nell\'eliminazione del campionato: ' + error.message);
+                }
+            }
+
+            // Caricamento iniziale
+            await loadCompetitions();
+        });
+    </script>
+</body>
+</html>

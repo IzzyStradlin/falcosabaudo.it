@@ -83,6 +83,7 @@
         .forum-title {
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             line-height: 1.4;
@@ -143,6 +144,7 @@
         .video-title {
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             line-height: 1.4;
@@ -260,6 +262,7 @@
                 <li><a href="https://falcosabaudo.forumfree.it/?f=64953354" class="underline text-yellow-400" target="_blank" rel="noopener">Coppa 2024/2025</a></li>
                 <li><a href="https://falcosabaudo.forumfree.it/?f=64728293" class="underline text-yellow-400" target="_blank" rel="noopener">Circuito ATP</a></li>
             </ul>
+            <p class="mt-4 text-sm">Per accedere alla <a href="campionato.html" class="underline text-yellow-400">gestione del campionato</a>, usa le tue credenziali Supabase. Se non hai ancora le credenziali, contatta l'amministratore via <a href="mailto:admin@falcosabaudo.it" class="underline text-yellow-400">email</a>.</p>
         </section>
 
         <nav aria-label="Link utili">
@@ -311,7 +314,7 @@
         // Funzione per recuperare gli ultimi video da YouTube
         async function fetchLatestVideos() {
             try {
-                const API_KEY = config.YOUTUBE_API_KEY;
+                const API_KEY = 'AIzaSyBcOj2wxMwY1mkZFwNRKuqhasdUo0Q1Sas';
                 
                 // Prima otteniamo l'ID del canale dall'handle
                 const channelHandle = '@FALCOSABAUDOTV-v5y';

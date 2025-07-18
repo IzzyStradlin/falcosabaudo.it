@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login - Falco Sabaudo</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-green-900 text-white p-8">
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Test Login Supabase</h1>
+        
+        <div class="bg-green-800 p-6 rounded">
+            <input type="email" id="email" placeholder="Email" value="admin@falcosabaudo.it" 
+                   class="w-full p-2 rounded mb-2 bg-green-900 text-white border border-yellow-400">
+            <input type="password" id="password" placeholder="Password" 
+                   class="w-full p-2 rounded mb-4 bg-green-900 text-white border border-yellow-400">
+            <button id="login-btn" class="w-full bg-yellow-400 text-green-900 p-2 rounded font-semibold">
+                Test Login
+            </button>
+            <div id="result" class="mt-4 text-sm"></div>
+        </div>
+        
+        <div id="debug" class="mt-4 bg-gray-800 p-4 rounded text-xs overflow-auto max-h-64"></div>
+    </div>
+
+    <script>
+        const debugDiv = document.getElementById('debug');
+        const resultDiv = document.getElementById('result');
+        
+        function log(message) {
+            console.log(message);
+            debugDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+        
+        function showResult(message, isError = false) {
+            resultDiv.innerHTML = message;
+            resultDiv.className = `mt-4 text-sm ${isError ? 'text-red-400' : 'text-green-400'}`;
+        }
+
+        // Inizializzazione
+        async function initSupabase() {
+            log('🚀 Inizializzazione test...');
+            
+            if (!window.supabase) {
+                log('❌ Libreria Supabase non caricata');
+                showResult('Errore: Libreria Supabase non caricata', true);
+                return null;
+            }
+            
+            log('✅ Libreria Supabase caricata');
+            
+            try {
+                const supabaseUrl = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+                
+                const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+                log('✅ Client Supabase creato');
+                
+                // Test connessione
+                const { data, error } = await client.auth.getUser();
+                if (error && error.message !== 'Auth session missing!') {
+                    log('⚠️ Warning: ' + error.message);
+                } else {
+                    log('✅ Connessione OK');
+                }
+                
+                return client;
+            } catch (error) {
+                log('❌ Errore inizializzazione: ' + error.message);
+                showResult('Errore inizializzazione: ' + error.message, true);
+                return null;
+            }
+        }
+
+        // Test login
+        async function testLogin() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showResult('Inserisci email e password', true);
+                return;
+            }
+            
+            log('🔐 Tentativo login per: ' + email);
+            
+            const client = await initSupabase();
+            if (!client) return;
+            
+            try {
+                const { data, error } = await client.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) {
+                    log('❌ Errore login: ' + error.message);
+                    showResult('Errore: ' + error.message, true);
+                } else {
+                    log('✅ Login riuscito!');
+                    showResult('✅ Login riuscito per: ' + data.user.email);
+                }
+            } catch (error) {
+                log('❌ Eccezione: ' + error.message);
+                showResult('Eccezione: ' + error.message, true);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('login-btn').addEventListener('click', testLogin);
+        
+        // Inizializzazione automatica
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initSupabase();
+        });
+    </script>
+</body>
+</html>
