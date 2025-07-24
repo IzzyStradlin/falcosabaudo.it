@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Header di sicurezza -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://hvviecqurdbpxxfmaapb.supabase.co; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';" />
     <title>Gestione Campionato - Falco Sabaudo</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -143,7 +149,14 @@
                             <select id="competition-type" class="p-2 rounded bg-green-900 text-white border border-yellow-400">
                                 <option value="all-against-all">Campionato all'italiana</option>
                                 <option value="elimination">Eliminazione diretta</option>
-                                <option value="group-stage">Gironi</option>
+                                <option value="cup">Coppa (Gironi + Finale)</option>
+                            </select>
+                        </div>
+                        <div id="cup-groups-container" class="hidden">
+                            <label class="block text-sm mb-1">Numero Gironi</label>
+                            <select id="cup-groups" class="p-2 rounded bg-green-900 text-white border border-yellow-400">
+                                <option value="2">2 Gironi</option>
+                                <option value="4">4 Gironi</option>
                             </select>
                         </div>
                         <button type="submit" class="bg-yellow-400 text-green-900 px-6 py-2 rounded font-semibold hover:bg-yellow-300">
@@ -172,9 +185,17 @@
                     <select id="calendar-competition-select" class="w-full p-2 rounded bg-green-900 text-white border border-yellow-400 mb-4">
                         <option value="">Seleziona un campionato...</option>
                     </select>
-                    <button id="generate-calendar" class="bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300">
-                        Genera Calendario
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="generate-calendar" class="bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300">
+                            Genera Calendario
+                        </button>
+                        <button id="generate-finals" class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700" style="display: none;">
+                            Genera Fasi Finali
+                        </button>
+                        <button id="repair-finals" class="bg-orange-600 text-white px-4 py-2 rounded font-semibold hover:bg-orange-700" style="display: none;">
+                            🔧 Ripara Fasi Finali
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Giornate -->
@@ -328,7 +349,17 @@
                                     class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="all-against-all">Campionato all'italiana</option>
                                 <option value="elimination">Eliminazione diretta</option>
-                                <option value="group-stage">Gironi</option>
+                                <option value="cup">Coppa (Gironi + Finale)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="edit-cup-groups-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 hidden">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2">Numero Gironi</label>
+                            <select id="edit-cup-groups" 
+                                    class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="2">2 Gironi</option>
+                                <option value="4">4 Gironi</option>
                             </select>
                         </div>
                     </div>
@@ -427,6 +458,36 @@
         
         // Variabili globali
         let supabaseClient = null;
+        let logoutTimer = null;
+        let loginAttempts = 0;
+        let lastLoginAttempt = 0;
+
+        // Timer per logout automatico (30 minuti di inattività)
+        function resetLogoutTimer() {
+            if (logoutTimer) {
+                clearTimeout(logoutTimer);
+            }
+            logoutTimer = setTimeout(async () => {
+                try {
+                    await logout();
+                    const adminSection = document.getElementById('admin-section');
+                    const logoutBtn = document.getElementById('logout-btn');
+                    adminSection.classList.add('hidden');
+                    logoutBtn.classList.add('hidden');
+                    showError('Sessione scaduta per inattività. Effettua nuovamente il login.');
+                } catch (error) {
+                    console.error('Errore logout automatico:', error);
+                }
+            }, 30 * 60 * 1000); // 30 minuti
+        }
+
+        // Attiva il timer su qualsiasi attività dell'utente
+        function setupActivityListeners() {
+            const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            events.forEach(event => {
+                document.addEventListener(event, resetLogoutTimer, true);
+            });
+        }
 
         // Inizializzazione Supabase
         async function initSupabase() {
@@ -449,8 +510,14 @@
             const url = 'https://hvviecqurdbpxxfmaapb.supabase.co';
             const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
             
-            supabaseClient = window.supabase.createClient(url, key);
-            console.log('✅ Client Supabase creato');
+            supabaseClient = window.supabase.createClient(url, key, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: false,  // Disabilita il refresh automatico
+                    detectSessionInUrl: false
+                }
+            });
+            console.log('✅ Client Supabase creato con scadenza sessione');
             
             return supabaseClient;
         }
@@ -477,13 +544,25 @@
         }
 
         // Funzioni per i campionati
-        async function createCompetition(name, type, season) {
-            const { data, error } = await supabaseClient
-                .from('competitions')
-                .insert([{ name, type, season }])
-                .select();
-            if (error) throw new Error(error.message);
-            return data[0];
+        async function createCompetition(name, type, season, groupsCount = null) {
+            try {
+                const competitionData = { name, type, season };
+                
+                // Aggiungi il numero di gironi per le coppe
+                if (type === 'cup' && groupsCount) {
+                    competitionData.groups_count = parseInt(groupsCount);
+                }
+                
+                const { data, error } = await supabaseClient
+                    .from('competitions')
+                    .insert([competitionData])
+                    .select();
+                    
+                if (error) throw new Error(error.message);
+                return data[0];
+            } catch (err) {
+                throw new Error(err.message);
+            }
         }
 
         async function getAllCompetitions() {
@@ -587,24 +666,41 @@
         }
 
         // Funzioni per le giornate e partite
-        async function createMatchday(competitionId, roundNumber, date) {
+        async function createMatchday(competitionId, roundNumber, description = null) {
+            const matchdayData = { 
+                competition_id: competitionId, 
+                round_number: roundNumber
+            };
+            
+            // Aggiungi la descrizione se fornita
+            if (description) {
+                matchdayData.description = description;
+            }
+            
             const { data, error } = await supabaseClient
                 .from('matchdays')
-                .insert([{ competition_id: competitionId, round_number: roundNumber, date: date }])
+                .insert([matchdayData])
                 .select();
             if (error) throw new Error(error.message);
             return data[0];
         }
 
-        async function createMatch(matchdayId, homeTeamId, awayTeamId) {
+        async function createMatch(matchdayId, homeTeamId, awayTeamId, groupLetter = null) {
+            const matchData = { 
+                matchday_id: matchdayId, 
+                home_team_id: homeTeamId, 
+                away_team_id: awayTeamId,
+                status: 'scheduled'
+            };
+            
+            // Aggiungi il girone se fornito
+            if (groupLetter) {
+                matchData.group_letter = groupLetter;
+            }
+            
             const { data, error } = await supabaseClient
                 .from('matches')
-                .insert([{ 
-                    matchday_id: matchdayId, 
-                    home_team_id: homeTeamId, 
-                    away_team_id: awayTeamId,
-                    status: 'scheduled'
-                }])
+                .insert([matchData])
                 .select();
             if (error) throw new Error(error.message);
             return data[0];
@@ -946,6 +1042,1017 @@
             return schedule;
         }
 
+        // Funzione per generare calendario a girone unico (solo andata) per la coppa
+        function generateSingleRoundSchedule(teams) {
+            const schedule = [];
+            const teamsCopy = [...teams];
+            
+            // Se il numero di squadre è dispari, aggiungi una squadra "riposo"
+            if (teamsCopy.length % 2 === 1) {
+                teamsCopy.push({ id: 'bye', name: 'Riposo' });
+            }
+            
+            const numTeams = teamsCopy.length;
+            const numRounds = numTeams - 1;
+            
+            // SOLO ANDATA
+            for (let round = 0; round < numRounds; round++) {
+                const roundMatches = [];
+                
+                for (let i = 0; i < numTeams / 2; i++) {
+                    const home = teamsCopy[i];
+                    const away = teamsCopy[numTeams - 1 - i];
+                    
+                    // Salta le partite con "riposo"
+                    if (home.id !== 'bye' && away.id !== 'bye') {
+                        roundMatches.push({
+                            home_team: home,
+                            away_team: away,
+                            round_type: 'girone'
+                        });
+                    }
+                }
+                
+                schedule.push({
+                    round: round + 1,
+                    matches: roundMatches,
+                    phase: 'Girone'
+                });
+                
+                // Ruota le squadre (tranne la prima)
+                const temp = teamsCopy[1];
+                for (let i = 1; i < numTeams - 1; i++) {
+                    teamsCopy[i] = teamsCopy[i + 1];
+                }
+                teamsCopy[numTeams - 1] = temp;
+            }
+            
+            return schedule;
+        }
+
+        // Funzione per generare calendario coppa (gironi + eliminazione)
+        async function generateCupCalendar(competitionId, teams, groupsCount) {
+            console.log(`🏆 INIZIO generateCupCalendar:`, {
+                competitionId,
+                teamsCount: teams.length,
+                groupsCount
+            });
+            
+            if (teams.length < 4) {
+                throw new Error('Servono almeno 4 squadre per un torneo coppa');
+            }
+
+            // Dividi le squadre nei gironi
+            const groups = distributeTeamsInGroups(teams, groupsCount);
+            
+            // Genera calendari per ogni girone utilizzando il calendario a girone unico (solo andata)
+            const groupSchedules = groups.map(groupTeams => generateSingleRoundSchedule(groupTeams));
+            
+            // Trova il numero massimo di giornate tra tutti i gironi
+            const maxRounds = Math.max(...groupSchedules.map(schedule => schedule.length));
+            
+            let roundNumber = 1;
+            
+            // FASE GIRONI - Crea giornate unificate per tutti i gironi
+            for (let roundIndex = 0; roundIndex < maxRounds; roundIndex++) {
+                const allMatches = [];
+                let roundDescription = '';
+                
+                // Raccogli tutte le partite di questa giornata da tutti i gironi
+                for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                    const groupSchedule = groupSchedules[groupIndex];
+                    
+                    if (roundIndex < groupSchedule.length) {
+                        const round = groupSchedule[roundIndex];
+                        const groupLetter = String.fromCharCode(65 + groupIndex); // A, B, C, D
+                        
+                        // Aggiungi informazioni sul girone a ogni partita
+                        const groupMatches = round.matches.map(match => ({
+                            ...match,
+                            groupLetter: groupLetter,
+                            groupIndex: groupIndex
+                        }));
+                        
+                        allMatches.push(...groupMatches);
+                        
+                        // Costruisci la descrizione della giornata
+                        if (roundDescription === '') {
+                            roundDescription = `${round.phase} Giornata ${round.round}`;
+                        }
+                    }
+                }
+                
+                // Crea la giornata unificata se ci sono partite
+                if (allMatches.length > 0) {
+                    const matchday = await createMatchday(competitionId, roundNumber, roundDescription);
+                    
+                    // Crea tutte le partite per questa giornata
+                    for (const match of allMatches) {
+                        await createMatch(matchday.id, match.home_team.id, match.away_team.id, match.groupLetter);
+                    }
+                    
+                    roundNumber++;
+                }
+            }
+            
+            console.log(`🏆 Fasi gironi completate, inizio creazione fasi eliminazione con roundNumber: ${roundNumber}`);
+            // FASE ELIMINAZIONE - Crea struttura per le fasi finali
+            await createEliminationPhases(competitionId, groupsCount, roundNumber);
+            console.log(`🏆 generateCupCalendar completata con successo`);
+        }
+
+        // Funzione per generare calendario eliminazione diretta
+        async function generateEliminationCalendar(competitionId, teams) {
+            const eliminationRounds = calculateEliminationRounds(teams.length);
+            let roundNumber = 1;
+            
+            // Se il numero di squadre non è una potenza di 2, crea turni preliminari
+            if (!isPowerOfTwo(teams.length)) {
+                const { preliminaryMatches, advancingTeams } = createPreliminaryRound(teams);
+                
+                if (preliminaryMatches.length > 0) {
+                    const matchday = await createMatchday(competitionId, roundNumber, 'Turno Preliminare');
+                    for (const match of preliminaryMatches) {
+                        await createMatch(matchday.id, match.home_team.id, match.away_team.id);
+                    }
+                    roundNumber++;
+                }
+                
+                teams = advancingTeams;
+            }
+            
+            // Crea le fasi di eliminazione
+            let currentTeams = teams.length;
+            const phases = ['Finale', 'Semifinale', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'];
+            
+            while (currentTeams > 1) {
+                const phaseName = getPhaseName(currentTeams, phases);
+                const matchday = await createMatchday(competitionId, roundNumber, phaseName);
+                
+                // Le partite verranno create quando si qualificheranno le squadre
+                // Per ora creiamo solo la struttura delle giornate
+                
+                currentTeams = Math.floor(currentTeams / 2);
+                roundNumber++;
+            }
+        }
+
+        // Funzioni di supporto per la coppa
+        function distributeTeamsInGroups(teams, groupsCount) {
+            const groups = Array.from({ length: groupsCount }, () => []);
+            
+            // Distribuisci le squadre in modo alternato nei gironi
+            teams.forEach((team, index) => {
+                const groupIndex = index % groupsCount;
+                groups[groupIndex].push(team);
+            });
+            
+            return groups;
+        }
+
+        async function createEliminationPhases(competitionId, groupsCount, startingRoundNumber) {
+            try {
+                console.log(`Creazione fasi eliminazione: competitionId=${competitionId}, groupsCount=${groupsCount}, startingRoundNumber=${startingRoundNumber}`);
+                let roundNumber = startingRoundNumber;
+                
+                if (groupsCount === 2) {
+                    console.log('Creazione fasi per 2 gironi: Finale + Finale 3° posto');
+                    
+                    // Con 2 gironi: Finale diretta (primi di ogni girone)
+                    const finalMatchday = await createMatchday(competitionId, roundNumber, 'Finale');
+                    console.log('Giornata "Finale" creata:', finalMatchday);
+                    
+                    // Eventuale finale 3° posto (secondi di ogni girone)
+                    const thirdPlaceMatchday = await createMatchday(competitionId, roundNumber + 1, 'Finale 3° posto');
+                    console.log('Giornata "Finale 3° posto" creata:', thirdPlaceMatchday);
+                    
+                } else if (groupsCount === 4) {
+                    console.log('Creazione fasi per 4 gironi: Semifinali + Finale + Finale 3° posto');
+                    
+                    // Con 4 gironi: Semifinali + Finale
+                    const semifinalMatchday = await createMatchday(competitionId, roundNumber, 'Semifinali');
+                    console.log('Giornata "Semifinali" creata:', semifinalMatchday);
+                    roundNumber++;
+                    
+                    const finalMatchday = await createMatchday(competitionId, roundNumber, 'Finale');
+                    console.log('Giornata "Finale" creata:', finalMatchday);
+                    roundNumber++;
+                    
+                    const thirdPlaceMatchday = await createMatchday(competitionId, roundNumber, 'Finale 3° posto');
+                    console.log('Giornata "Finale 3° posto" creata:', thirdPlaceMatchday);
+                }
+                
+                console.log('Tutte le fasi di eliminazione create con successo');
+                
+            } catch (error) {
+                console.error('Errore nella creazione delle fasi di eliminazione:', error);
+                throw error;
+            }
+        }
+
+        function isPowerOfTwo(n) {
+            return n > 0 && (n & (n - 1)) === 0;
+        }
+
+        function createPreliminaryRound(teams) {
+            const targetSize = Math.pow(2, Math.floor(Math.log2(teams.length)));
+            const teamsToEliminate = teams.length - targetSize;
+            const preliminaryMatches = [];
+            const advancingTeams = [];
+            
+            // Le prime squadre passano direttamente
+            for (let i = 0; i < teams.length - (teamsToEliminate * 2); i++) {
+                advancingTeams.push(teams[i]);
+            }
+            
+            // Le rimanenti giocano i preliminari
+            for (let i = teams.length - (teamsToEliminate * 2); i < teams.length; i += 2) {
+                if (i + 1 < teams.length) {
+                    preliminaryMatches.push({
+                        home_team: teams[i],
+                        away_team: teams[i + 1]
+                    });
+                }
+            }
+            
+            return { preliminaryMatches, advancingTeams };
+        }
+
+        function calculateEliminationRounds(numTeams) {
+            return Math.ceil(Math.log2(numTeams));
+        }
+
+        function getPhaseName(currentTeams, phases) {
+            if (currentTeams === 2) return 'Finale';
+            if (currentTeams === 4) return 'Semifinale';
+            if (currentTeams === 8) return 'Quarti di finale';
+            if (currentTeams === 16) return 'Ottavi di finale';
+            if (currentTeams === 32) return 'Sedicesimi di finale';
+            return `Fase a ${currentTeams}`;
+        }
+
+        // Funzioni per calcolare le qualificate dai gironi della coppa
+        async function calculateGroupWinners(competitionId) {
+            try {
+                // Prima ottieni tutte le giornate della competizione (escluse fasi finali)
+                const { data: matchdays, error: matchdaysError } = await supabaseClient
+                    .from('matchdays')
+                    .select('id, description')
+                    .eq('competition_id', competitionId)
+                    .not('description', 'in', '("Semifinali","Finale","Finale 3° posto")');
+
+                if (matchdaysError) throw matchdaysError;
+                
+                if (!matchdays || matchdays.length === 0) {
+                    throw new Error('Nessuna giornata trovata per questa competizione');
+                }
+
+                const matchdayIds = matchdays.map(md => md.id);
+
+                // Ottieni tutte le partite dei gironi completate
+                const { data: matches, error: matchesError } = await supabaseClient
+                    .from('matches')
+                    .select(`
+                        *,
+                        home_team:teams!matches_home_team_id_fkey(id, name),
+                        away_team:teams!matches_away_team_id_fkey(id, name)
+                    `)
+                    .in('matchday_id', matchdayIds)
+                    .not('home_score', 'is', null)
+                    .not('away_score', 'is', null)
+                    .not('group_letter', 'is', null);
+
+                if (matchesError) throw matchesError;
+
+                console.log(`Trovate ${matches.length} partite completate per la competizione ${competitionId}`);
+
+                // Raggruppa per lettera del girone
+                const groupMatches = {};
+                matches.forEach(match => {
+                    if (!groupMatches[match.group_letter]) {
+                        groupMatches[match.group_letter] = [];
+                    }
+                    groupMatches[match.group_letter].push(match);
+                });
+
+                console.log('Gironi trovati:', Object.keys(groupMatches));
+
+                // Calcola la classifica per ogni girone
+                const groupWinners = {};
+                const groupRunners = {};
+
+                for (const [groupLetter, groupMatchesList] of Object.entries(groupMatches)) {
+                    const standings = calculateGroupStandings(groupMatchesList);
+                    console.log(`Classifica girone ${groupLetter}:`, standings.map(s => `${s.team.name} (${s.points} pt)`));
+                    
+                    if (standings.length > 0) {
+                        groupWinners[groupLetter] = standings[0]; // Prima classificata
+                        if (standings.length > 1) {
+                            groupRunners[groupLetter] = standings[1]; // Seconda classificata
+                        }
+                    }
+                }
+
+                console.log('Vincitori dei gironi:', Object.fromEntries(
+                    Object.entries(groupWinners).map(([key, value]) => [key, value.team.name])
+                ));
+
+                return { groupWinners, groupRunners };
+            } catch (error) {
+                console.error('Errore nel calcolare le vincitrici dei gironi:', error);
+                throw error;
+            }
+        }
+
+        function calculateGroupStandings(matches) {
+            const teams = {};
+
+            // Inizializza le statistiche per ogni squadra
+            matches.forEach(match => {
+                if (!teams[match.home_team.id]) {
+                    teams[match.home_team.id] = {
+                        team: match.home_team,
+                        points: 0,
+                        played: 0,
+                        won: 0,
+                        drawn: 0,
+                        lost: 0,
+                        goals_for: 0,
+                        goals_against: 0,
+                        goal_difference: 0
+                    };
+                }
+                if (!teams[match.away_team.id]) {
+                    teams[match.away_team.id] = {
+                        team: match.away_team,
+                        points: 0,
+                        played: 0,
+                        won: 0,
+                        drawn: 0,
+                        lost: 0,
+                        goals_for: 0,
+                        goals_against: 0,
+                        goal_difference: 0
+                    };
+                }
+            });
+
+            // Calcola le statistiche
+            matches.forEach(match => {
+                const homeStats = teams[match.home_team.id];
+                const awayStats = teams[match.away_team.id];
+
+                homeStats.played++;
+                awayStats.played++;
+                homeStats.goals_for += match.home_score;
+                homeStats.goals_against += match.away_score;
+                awayStats.goals_for += match.away_score;
+                awayStats.goals_against += match.home_score;
+
+                if (match.home_score > match.away_score) {
+                    // Vittoria casa
+                    homeStats.won++;
+                    homeStats.points += 3;
+                    awayStats.lost++;
+                } else if (match.home_score < match.away_score) {
+                    // Vittoria trasferta
+                    awayStats.won++;
+                    awayStats.points += 3;
+                    homeStats.lost++;
+                } else {
+                    // Pareggio
+                    homeStats.drawn++;
+                    awayStats.drawn++;
+                    homeStats.points += 1;
+                    awayStats.points += 1;
+                }
+            });
+
+            // Calcola la differenza reti
+            Object.values(teams).forEach(team => {
+                team.goal_difference = team.goals_for - team.goals_against;
+            });
+
+            // Ordina per: punti (desc), differenza reti (desc), gol fatti (desc), casualità
+            return Object.values(teams).sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
+                if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
+                // Spareggio casuale
+                return Math.random() - 0.5;
+            });
+        }
+
+        async function generateEliminationMatches(competitionId) {
+            console.log('🔥🔥🔥 CHIAMATA generateEliminationMatches - ID:', competitionId);
+            try {
+                // Ottieni informazioni sulla competizione
+                const { data: competition, error: compError } = await supabaseClient
+                    .from('competitions')
+                    .select('groups_count, type')
+                    .eq('id', competitionId)
+                    .single();
+
+                if (compError) throw compError;
+
+                const groupsCount = competition.groups_count;
+                console.log(`Generazione fasi eliminazione per competizione tipo ${competition.type} con ${groupsCount} gironi`);
+
+                // Verifica che sia effettivamente una coppa
+                if (competition.type !== 'cup') {
+                    throw new Error('Questa funzione è disponibile solo per le competizioni di tipo "coppa"');
+                }
+
+                // Verifica che le giornate delle fasi finali esistano
+                const phasesCheck = await verifyEliminationPhasesExist(competitionId, groupsCount);
+                
+                if (!phasesCheck.exist) {
+                    // Le fasi finali mancano, crea automaticamente
+                    console.log('🔧 Auto-riparazione: Fasi finali mancanti, creazione automatica...');
+                    console.log('🔧 Fasi mancanti:', phasesCheck.missingPhases);
+                    
+                    try {
+                        // Calcola il prossimo round number
+                        const { data: lastMatchday } = await supabaseClient
+                            .from('matchdays')
+                            .select('round_number')
+                            .eq('competition_id', competitionId)
+                            .order('round_number', { ascending: false })
+                            .limit(1)
+                            .single();
+                            
+                        const nextRoundNumber = lastMatchday ? lastMatchday.round_number + 1 : 1;
+                        console.log('🔧 Auto-riparazione: prossimo numero giornata:', nextRoundNumber);
+                        
+                        // Crea le fasi mancanti
+                        await createEliminationPhases(competitionId, groupsCount, nextRoundNumber);
+                        console.log('✅ Auto-riparazione: Fasi finali create automaticamente!');
+                        showSuccess('✅ Fasi finali create automaticamente! Generazione partite in corso...');
+                        
+                    } catch (fixError) {
+                        console.error('❌ Errore durante la riparazione automatica:', fixError);
+                        showError('❌ Auto-riparazione fallita: ' + fixError.message);
+                        throw new Error(`Impossibile creare le fasi finali: ${fixError.message}`);
+                    }
+                }
+
+                // Verifica quale fase è da generare
+                const nextPhase = await determineNextPhase(competitionId, groupsCount);
+                console.log(`Prossima fase da generare: ${nextPhase}`);
+
+                switch (nextPhase) {
+                    case 'semifinals':
+                        const { groupWinners } = await calculateGroupWinners(competitionId);
+                        if (groupsCount === 4) {
+                            await createSemifinalMatches(competitionId, groupWinners);
+                        }
+                        break;
+                    
+                    case 'finals':
+                        if (groupsCount === 2) {
+                            // Con 2 gironi: genera finale direttamente dai gironi
+                            const { groupWinners, groupRunners } = await calculateGroupWinners(competitionId);
+                            await createFinalMatches(competitionId, groupWinners, groupRunners);
+                        } else if (groupsCount === 4) {
+                            // Con 4 gironi: genera finale dai risultati delle semifinali
+                            await createFinalFromSemifinals(competitionId);
+                        }
+                        break;
+                    
+                    case 'third_place':
+                        // Genera finale 3° posto dai perdenti delle semifinali
+                        await createThirdPlaceFromSemifinals(competitionId);
+                        break;
+                    
+                    case 'complete':
+                        // Rigenera tutte le fasi finali: prima cancella quelle esistenti
+                        await clearFinalPhases(competitionId);
+                        
+                        // CRUCIALE: Ricrea le fasi finali dopo averle cancellate
+                        const { data: lastMatchday } = await supabaseClient
+                            .from('matchdays')
+                            .select('round_number')
+                            .eq('competition_id', competitionId)
+                            .order('round_number', { ascending: false })
+                            .limit(1)
+                            .single();
+                            
+                        const nextRoundNumber = lastMatchday ? lastMatchday.round_number + 1 : 1;
+                        await createEliminationPhases(competitionId, groupsCount, nextRoundNumber);
+                        console.log('✅ Fasi finali ricreate dopo cancellazione');
+                        
+                        // Poi rigenera dalla prima fase necessaria
+                        if (groupsCount === 2) {
+                            // Con 2 gironi: genera solo finale
+                            const { groupWinners, groupRunners } = await calculateGroupWinners(competitionId);
+                            await createFinalMatches(competitionId, groupWinners, groupRunners);
+                        } else if (groupsCount === 4) {
+                            // Con 4 gironi: genera semifinali, poi finale, poi 3° posto
+                            const { groupWinners } = await calculateGroupWinners(competitionId);
+                            await createSemifinalMatches(competitionId, groupWinners);
+                            showSuccess('Semifinali rigenerate! Completa i risultati delle semifinali per generare finale e finale 3° posto.');
+                            return;
+                        }
+                        break;
+                }
+
+                showSuccess('Partite delle fasi finali generate con successo!');
+            } catch (error) {
+                console.error('Errore nella generazione delle partite finali:', error);
+                showError('Errore nella generazione delle partite finali: ' + error.message);
+            }
+        }
+
+        async function verifyEliminationPhasesExist(competitionId, groupsCount) {
+            const { data: matchdays, error } = await supabaseClient
+                .from('matchdays')
+                .select('description, round_number')
+                .eq('competition_id', competitionId);
+
+            if (error) throw error;
+
+            console.log('🔍 DEBUG - Tutte le giornate trovate per la competizione:', matchdays);
+            
+            const existingPhases = matchdays.map(md => md.description);
+            console.log('🔍 Fasi esistenti (descrizioni):', existingPhases);
+
+            // Controlla se le fasi finali necessarie esistono
+            const requiredPhases = [];
+            if (groupsCount === 2) {
+                requiredPhases.push('Finale');
+            } else if (groupsCount === 4) {
+                requiredPhases.push('Semifinali', 'Finale');
+            }
+
+            console.log('🔍 Fasi richieste:', requiredPhases);
+            const missingPhases = requiredPhases.filter(phase => !existingPhases.includes(phase));
+            console.log('🔍 Fasi mancanti:', missingPhases);
+            
+            if (missingPhases.length > 0) {
+                console.error('❌ Fasi mancanti trovate:', missingPhases);
+                
+                // Mostra anche informazioni sulla competizione per debug
+                const { data: compInfo } = await supabaseClient
+                    .from('competitions')
+                    .select('name, type, groups_count')
+                    .eq('id', competitionId)
+                    .single();
+                
+                console.log('🔍 Informazioni competizione:', compInfo);
+                
+                return {
+                    exist: false,
+                    missingPhases: missingPhases,
+                    competitionInfo: compInfo,
+                    debugInfo: {
+                        totalMatchdays: matchdays.length,
+                        matchdaysWithDescription: matchdays.filter(md => md.description).length,
+                        existingPhases: existingPhases,
+                        requiredPhases: requiredPhases
+                    }
+                };
+            }
+
+            console.log('✅ Tutte le fasi necessarie sono presenti');
+            return {
+                exist: true,
+                existingPhases: existingPhases,
+                requiredPhases: requiredPhases
+            };
+        }
+
+        async function clearFinalPhases(competitionId) {
+            try {
+                // Ottieni le giornate delle fasi finali
+                const { data: finalMatchdays, error: matchdaysError } = await supabaseClient
+                    .from('matchdays')
+                    .select('id')
+                    .eq('competition_id', competitionId)
+                    .in('description', ['Semifinali', 'Finale', 'Finale 3° posto']);
+
+                if (matchdaysError) throw matchdaysError;
+
+                if (finalMatchdays && finalMatchdays.length > 0) {
+                    const matchdayIds = finalMatchdays.map(md => md.id);
+                    
+                    // Cancella prima le partite di queste giornate
+                    const { error: matchesError } = await supabaseClient
+                        .from('matches')
+                        .delete()
+                        .in('matchday_id', matchdayIds);
+
+                    if (matchesError) throw matchesError;
+
+                    // Poi cancella le giornate stesse
+                    const { error: deletionError } = await supabaseClient
+                        .from('matchdays')
+                        .delete()
+                        .in('id', matchdayIds);
+
+                    if (deletionError) throw deletionError;
+                }
+
+                // Pulisci il localStorage dai dati delle semifinali se esistono
+                localStorage.removeItem(`semifinalLosers_${competitionId}`);
+                
+            } catch (error) {
+                console.error('Errore nella cancellazione delle fasi finali:', error);
+                throw error;
+            }
+        }
+
+        async function determineNextPhase(competitionId, groupsCount) {
+            // Verifica quali giornate esistono già
+            const { data: matchdays, error } = await supabaseClient
+                .from('matchdays')
+                .select('description')
+                .eq('competition_id', competitionId)
+                .in('description', ['Semifinali', 'Finale', 'Finale 3° posto']);
+
+            if (error) throw error;
+
+            const existingPhases = matchdays.map(md => md.description);
+
+            if (groupsCount === 2) {
+                // Con 2 gironi: solo finale diretta
+                if (!existingPhases.includes('Finale')) {
+                    return 'finals';
+                } else {
+                    return 'complete';
+                }
+            } else if (groupsCount === 4) {
+                // Con 4 gironi: semifinali → finale → 3° posto
+                if (!existingPhases.includes('Semifinali')) {
+                    return 'semifinals';
+                } else if (!existingPhases.includes('Finale')) {
+                    // Verifica se le semifinali sono completate
+                    const semifinalsComplete = await checkSemifinalsComplete(competitionId);
+                    if (semifinalsComplete) {
+                        return 'finals';
+                    } else {
+                        showError('Le semifinali devono essere completate prima di generare la finale');
+                        throw new Error('Semifinali non completate');
+                    }
+                } else if (!existingPhases.includes('Finale 3° posto')) {
+                    return 'third_place';
+                } else {
+                    return 'complete';
+                }
+            }
+
+            return 'complete';
+        }
+
+        async function checkSemifinalsComplete(competitionId) {
+            const { data: semifinalMatchday } = await supabaseClient
+                .from('matchdays')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .eq('description', 'Semifinali')
+                .single();
+
+            if (!semifinalMatchday) return false;
+
+            const { data: matches } = await supabaseClient
+                .from('matches')
+                .select('home_score, away_score')
+                .eq('matchday_id', semifinalMatchday.id);
+
+            // Tutte le partite devono avere un risultato
+            return matches && matches.every(match => 
+                match.home_score !== null && match.away_score !== null
+            );
+        }
+
+        async function updateFinalsButtonText(competitionId, groupsCount) {
+            const finalsBtn = document.getElementById('generate-finals');
+            const repairBtn = document.getElementById('repair-finals');
+            
+            try {
+                // Verifica se esistono le fasi di eliminazione
+                const phasesExist = await verifyEliminationPhasesExist(competitionId, groupsCount);
+                
+                if (!phasesExist.exist) {
+                    // Mostra il pulsante di riparazione se le fasi mancano
+                    repairBtn.style.display = 'block';
+                    finalsBtn.style.display = 'none';
+                    return;
+                }
+                
+                // Nascondi il pulsante di riparazione se le fasi esistono
+                repairBtn.style.display = 'none';
+                finalsBtn.style.display = 'block';
+                
+                // Determina quale fase generare e aggiorna il testo del pulsante
+                const nextPhase = await determineNextPhase(competitionId, groupsCount);
+                switch (nextPhase) {
+                    case 'semifinals':
+                        finalsBtn.textContent = 'Genera Semifinali';
+                        finalsBtn.disabled = false;
+                        finalsBtn.className = 'bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700';
+                        break;
+                    case 'finals':
+                        finalsBtn.textContent = 'Genera Finale';
+                        finalsBtn.disabled = false;
+                        finalsBtn.className = 'bg-purple-600 text-white px-4 py-2 rounded font-semibold hover:bg-purple-700';
+                        break;
+                    case 'third_place':
+                        finalsBtn.textContent = 'Genera Finale 3° posto';
+                        finalsBtn.disabled = false;
+                        finalsBtn.className = 'bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700';
+                        break;
+                    case 'complete':
+                        finalsBtn.textContent = 'Rigenera Fasi Finali';
+                        finalsBtn.disabled = false;
+                        finalsBtn.className = 'bg-orange-600 text-white px-4 py-2 rounded font-semibold hover:bg-orange-700';
+                        break;
+                    default:
+                        finalsBtn.textContent = 'Genera Fasi Finali';
+                        finalsBtn.disabled = false;
+                        finalsBtn.className = 'bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700';
+                }
+            } catch (error) {
+                console.error('Errore nell\'aggiornamento del pulsante finali:', error);
+                // In caso di errore, lascia il pulsante in stato normale
+                finalsBtn.textContent = 'Genera Fasi Finali';
+                finalsBtn.disabled = false;
+                finalsBtn.className = 'bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700';
+                repairBtn.style.display = 'none';
+            }
+        }
+
+        async function createFinalMatches(competitionId, groupWinners, groupRunners) {
+            try {
+                console.log('Inizio creazione finali per competizione:', competitionId);
+                console.log('🔍 DEBUG - Tipo di competitionId:', typeof competitionId, competitionId);
+                
+                // Prima verifichiamo che le giornate delle finali esistano
+                const { data: existingMatchdays, error: checkError } = await supabaseClient
+                    .from('matchdays')
+                    .select('id, description, competition_id')
+                    .eq('competition_id', competitionId)
+                    .in('description', ['Finale', 'Finale 3° posto']);
+
+                if (checkError) {
+                    console.error('Errore nel verificare le giornate esistenti:', checkError);
+                    throw new Error('Errore nel verificare le giornate delle finali');
+                }
+
+                console.log('Giornate finali esistenti:', existingMatchdays);
+                
+                // Se non trova giornate finali, cerca TUTTE le giornate per debug
+                if (existingMatchdays.length === 0) {
+                    console.log('🚨 NESSUNA GIORNATA FINALE TROVATA! Cerco tutte le giornate...');
+                    
+                    const { data: allMatchdays } = await supabaseClient
+                        .from('matchdays')
+                        .select('*')
+                        .eq('competition_id', competitionId);
+                    console.log('🔍 Tutte le giornate per questa competizione:', allMatchdays);
+                    
+                    // Cerca anche tutte le giornate con "Finale" nel nome
+                    const { data: finaleMatchdays } = await supabaseClient
+                        .from('matchdays')
+                        .select('*')
+                        .ilike('description', '%finale%');
+                    console.log('🔍 Tutte le giornate contenenti "finale":', finaleMatchdays);
+                    
+                    throw new Error(`Nessuna giornata finale trovata per questa competizione. 
+                    
+🔍 DEBUG INFO:
+- Competition ID: ${competitionId}
+- Giornate totali trovate: ${allMatchdays?.length || 0}
+- Giornate finali in tutto il DB: ${finaleMatchdays?.length || 0}
+
+💡 POSSIBILE CAUSA: Le giornate finali non sono state create o sono associate a un'altra competizione.
+                    
+🔧 SOLUZIONE: Usa il pulsante di riparazione per creare le giornate mancanti.`);
+                }
+
+                // Finale: A vs B (primi di ogni girone)
+                if (groupWinners['A'] && groupWinners['B']) {
+                    const { data: finalMatchday, error: finalError } = await supabaseClient
+                        .from('matchdays')
+                        .select('id')
+                        .eq('competition_id', competitionId)
+                        .eq('description', 'Finale')
+                        .single();
+
+                    if (finalError) {
+                        console.error('Errore nel trovare la giornata della finale:', finalError);
+                        console.log('Dettagli errore finale:', finalError);
+                        
+                        // Prova a vedere tutte le giornate della competizione
+                        const { data: allMatchdays } = await supabaseClient
+                            .from('matchdays')
+                            .select('*')
+                            .eq('competition_id', competitionId);
+                        console.log('Tutte le giornate della competizione:', allMatchdays);
+                        
+                        throw new Error('Giornata della finale non trovata. Le giornate delle fasi finali potrebbero non essere state create correttamente durante la generazione del calendario.');
+                    }
+
+                    if (finalMatchday) {
+                        await createMatch(finalMatchday.id, groupWinners['A'].team.id, groupWinners['B'].team.id);
+                        console.log(`Finale creata: ${groupWinners['A'].team.name} vs ${groupWinners['B'].team.name}`);
+                    }
+                } else {
+                    const missingGroups = [];
+                    if (!groupWinners['A']) missingGroups.push('A');
+                    if (!groupWinners['B']) missingGroups.push('B');
+                    throw new Error(`Vincitori mancanti per i gironi: ${missingGroups.join(', ')}. Completa prima tutti i gironi.`);
+                }
+
+                // Finale 3° posto: 2°A vs 2°B (se esistono)
+                if (groupRunners['A'] && groupRunners['B']) {
+                    const { data: thirdPlaceMatchday, error: thirdError } = await supabaseClient
+                        .from('matchdays')
+                        .select('id')
+                        .eq('competition_id', competitionId)
+                        .eq('description', 'Finale 3° posto')
+                        .single();
+
+                    if (thirdError) {
+                        console.warn('Giornata finale 3° posto non trovata (normale se non prevista):', thirdError);
+                    } else if (thirdPlaceMatchday) {
+                        await createMatch(thirdPlaceMatchday.id, groupRunners['A'].team.id, groupRunners['B'].team.id);
+                        console.log(`Finale 3° posto creata: ${groupRunners['A'].team.name} vs ${groupRunners['B'].team.name}`);
+                    }
+                }
+
+                showSuccess('Finale generate con successo!');
+                
+            } catch (error) {
+                console.error('Errore nella creazione delle finali:', error);
+                throw error;
+            }
+        }
+
+        async function createSemifinalMatches(competitionId, groupWinners) {
+            try {
+                // Semifinali: A vs D, B vs C
+                const { data: semifinalMatchday, error: matchdayError } = await supabaseClient
+                    .from('matchdays')
+                    .select('id')
+                    .eq('competition_id', competitionId)
+                    .eq('description', 'Semifinali')
+                    .single();
+
+                if (matchdayError) {
+                    console.error('Errore nel trovare la giornata delle semifinali:', matchdayError);
+                    throw new Error('Giornata delle semifinali non trovata. Assicurati che il calendario sia stato generato correttamente.');
+                }
+
+                if (!semifinalMatchday) {
+                    throw new Error('Giornata delle semifinali non trovata');
+                }
+
+                // Verifica che tutti i vincitori dei gironi esistano
+                const requiredGroups = ['A', 'B', 'C', 'D'];
+                const missingGroups = requiredGroups.filter(group => !groupWinners[group]);
+                
+                if (missingGroups.length > 0) {
+                    throw new Error(`Vincitori mancanti per i gironi: ${missingGroups.join(', ')}. Completa prima tutti i gironi.`);
+                }
+
+                console.log('Creazione semifinali:', {
+                    matchdayId: semifinalMatchday.id,
+                    semifinal1: `${groupWinners['A'].team.name} vs ${groupWinners['D'].team.name}`,
+                    semifinal2: `${groupWinners['B'].team.name} vs ${groupWinners['C'].team.name}`
+                });
+
+                // Crea le partite delle semifinali: A vs D, B vs C
+                await createMatch(semifinalMatchday.id, groupWinners['A'].team.id, groupWinners['D'].team.id);
+                await createMatch(semifinalMatchday.id, groupWinners['B'].team.id, groupWinners['C'].team.id);
+
+                showSuccess('Semifinali generate con successo!');
+                
+            } catch (error) {
+                console.error('Errore nella creazione delle semifinali:', error);
+                throw error;
+            }
+        }
+
+        async function createFinalFromSemifinals(competitionId) {
+            // Ottieni i risultati delle semifinali
+            const { data: semifinalMatchday } = await supabaseClient
+                .from('matchdays')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .eq('description', 'Semifinali')
+                .single();
+
+            if (!semifinalMatchday) {
+                throw new Error('Semifinali non trovate');
+            }
+
+            const { data: semifinalMatches } = await supabaseClient
+                .from('matches')
+                .select(`
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name)
+                `)
+                .eq('matchday_id', semifinalMatchday.id);
+
+            if (!semifinalMatches || semifinalMatches.length !== 2) {
+                throw new Error('Semifinali non complete o non trovate');
+            }
+
+            // Determina i vincitori delle semifinali
+            const winners = [];
+            const losers = [];
+
+            semifinalMatches.forEach(match => {
+                if (match.home_score > match.away_score) {
+                    winners.push(match.home_team);
+                    losers.push(match.away_team);
+                } else if (match.away_score > match.home_score) {
+                    winners.push(match.away_team);
+                    losers.push(match.home_team);
+                } else {
+                    throw new Error(`Partita semifinale ${match.home_team.name} vs ${match.away_team.name} è finita in pareggio. Risolvere il pareggio prima di procedere.`);
+                }
+            });
+
+            // Crea la finale
+            const { data: finalMatchday } = await supabaseClient
+                .from('matchdays')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .eq('description', 'Finale')
+                .single();
+
+            if (finalMatchday && winners.length === 2) {
+                await createMatch(finalMatchday.id, winners[0].id, winners[1].id);
+            }
+
+            // Salva i perdenti per la finale 3° posto
+            await saveLosersForThirdPlace(competitionId, losers);
+        }
+
+        async function createThirdPlaceFromSemifinals(competitionId) {
+            // Recupera i perdenti delle semifinali
+            const losers = await getLosersFromSemifinals(competitionId);
+
+            if (losers.length === 2) {
+                const { data: thirdPlaceMatchday } = await supabaseClient
+                    .from('matchdays')
+                    .select('id')
+                    .eq('competition_id', competitionId)
+                    .eq('description', 'Finale 3° posto')
+                    .single();
+
+                if (thirdPlaceMatchday) {
+                    await createMatch(thirdPlaceMatchday.id, losers[0].id, losers[1].id);
+                }
+            }
+        }
+
+        async function saveLosersForThirdPlace(competitionId, losers) {
+            // Salva temporaneamente i perdenti in una tabella di supporto o in localStorage
+            // Per semplicità, uso localStorage
+            localStorage.setItem(`losers_${competitionId}`, JSON.stringify(losers));
+        }
+
+        async function getLosersFromSemifinals(competitionId) {
+            // Recupera i perdenti dal localStorage o ricalcola dalle semifinali
+            const stored = localStorage.getItem(`losers_${competitionId}`);
+            if (stored) {
+                return JSON.parse(stored);
+            }
+
+            // Se non sono salvati, ricalcola dalle semifinali
+            const { data: semifinalMatchday } = await supabaseClient
+                .from('matchdays')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .eq('description', 'Semifinali')
+                .single();
+
+            if (!semifinalMatchday) return [];
+
+            const { data: semifinalMatches } = await supabaseClient
+                .from('matches')
+                .select(`
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name)
+                `)
+                .eq('matchday_id', semifinalMatchday.id);
+
+            const losers = [];
+            semifinalMatches.forEach(match => {
+                if (match.home_score > match.away_score) {
+                    losers.push(match.away_team);
+                } else if (match.away_score > match.home_score) {
+                    losers.push(match.home_team);
+                }
+            });
+
+            return losers;
+        }
+
         // Funzioni UI
         function showError(message) {
             const authMessage = document.getElementById('auth-message');
@@ -963,7 +2070,7 @@
             const labels = {
                 'all-against-all': 'Campionato all\'italiana',
                 'elimination': 'Eliminazione diretta',
-                'group-stage': 'Gironi'
+                'cup': 'Coppa (Gironi + Finale)'
             };
             return labels[type] || type;
         }
@@ -1008,71 +2115,249 @@
 
         async function loadPublicStandings(competitionId) {
             try {
-                const standings = await getStandings(competitionId);
+                // Prima ottieni i dettagli della competizione per determinare il tipo
+                const { data: competition, error: compError } = await supabaseClient
+                    .from('competitions')
+                    .select('type, groups_count')
+                    .eq('id', competitionId)
+                    .single();
+                
+                if (compError) throw compError;
+                
                 const standingsContent = document.getElementById('public-standings-content');
                 
-                if (standings.length === 0) {
-                    standingsContent.innerHTML = '<p class="text-gray-400 italic">Nessuna classifica disponibile</p>';
-                    return;
-                }
-
-                const standingsHTML = `
-                    <div class="overflow-x-auto">
-                        <table class="w-full table-auto standings-table">
-                            <thead>
-                                <tr class="border-b border-yellow-400">
-                                    <th class="text-left py-2 px-3">Pos</th>
-                                    <th class="text-left py-2 px-3">Squadra</th>
-                                    <th class="text-center py-2 px-3">G</th>
-                                    <th class="text-center py-2 px-3">V</th>
-                                    <th class="text-center py-2 px-3">N</th>
-                                    <th class="text-center py-2 px-3">P</th>
-                                    <th class="text-center py-2 px-3">GF</th>
-                                    <th class="text-center py-2 px-3">GS</th>
-                                    <th class="text-center py-2 px-3">DR</th>
-                                    <th class="text-center py-2 px-3 font-bold">Pt</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${standings.map((team, index) => {
-                                    let positionClass = '';
-                                    if (index === 0) positionClass = 'bg-yellow-500 bg-opacity-20'; // Primo posto
-                                    else if (index === 1 || index === 2) positionClass = 'bg-green-500 bg-opacity-20'; // Secondo e terzo
-                                    else if (index >= standings.length - 3) positionClass = 'bg-red-500 bg-opacity-20'; // Zona retrocessione
-                                    
-                                    return `
-                                        <tr class="border-b border-green-700 hover:bg-green-700 ${positionClass}">
-                                            <td class="py-2 px-3 font-bold">${index + 1}</td>
-                                            <td class="py-2 px-3 font-semibold">${team.teams.name}</td>
-                                            <td class="text-center py-2 px-3">${team.games_played}</td>
-                                            <td class="text-center py-2 px-3">${team.wins}</td>
-                                            <td class="text-center py-2 px-3">${team.draws}</td>
-                                            <td class="text-center py-2 px-3">${team.losses}</td>
-                                            <td class="text-center py-2 px-3">${team.goals_for}</td>
-                                            <td class="text-center py-2 px-3">${team.goals_against}</td>
-                                            <td class="text-center py-2 px-3">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
-                                            <td class="text-center py-2 px-3 font-bold text-yellow-400">${team.points}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+                // Se è una coppa, mostra le fasi di eliminazione con evidenza
+                if (competition.type === 'cup') {
+                    await loadCupEliminationStandings(competitionId, competition.groups_count, standingsContent);
+                } else {
+                    // Classifica normale per le leghe
+                    const standings = await getStandings(competitionId);
                     
-                    <div class="mt-4 text-xs text-gray-400">
-                        <div class="flex flex-wrap gap-4">
-                            <span class="flex items-center"><span class="w-3 h-3 bg-yellow-500 bg-opacity-20 rounded mr-1"></span>1° posto</span>
-                            <span class="flex items-center"><span class="w-3 h-3 bg-green-500 bg-opacity-20 rounded mr-1"></span>2°-3° posto</span>
-                            <span class="flex items-center"><span class="w-3 h-3 bg-red-500 bg-opacity-20 rounded mr-1"></span>Zona retrocessione</span>
-                        </div>
-                    </div>
-                `;
+                    if (standings.length === 0) {
+                        standingsContent.innerHTML = '<p class="text-gray-400 italic">Nessuna classifica disponibile</p>';
+                        return;
+                    }
 
-                standingsContent.innerHTML = standingsHTML;
+                    const standingsHTML = `
+                        <div class="overflow-x-auto">
+                            <table class="w-full table-auto standings-table">
+                                <thead>
+                                    <tr class="border-b border-yellow-400">
+                                        <th class="text-left py-2 px-3">Pos</th>
+                                        <th class="text-left py-2 px-3">Squadra</th>
+                                        <th class="text-center py-2 px-3">G</th>
+                                        <th class="text-center py-2 px-3">V</th>
+                                        <th class="text-center py-2 px-3">N</th>
+                                        <th class="text-center py-2 px-3">P</th>
+                                        <th class="text-center py-2 px-3">GF</th>
+                                        <th class="text-center py-2 px-3">GS</th>
+                                        <th class="text-center py-2 px-3">DR</th>
+                                        <th class="text-center py-2 px-3 font-bold">Pt</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${standings.map((team, index) => {
+                                        let positionClass = '';
+                                        if (index === 0) positionClass = 'bg-yellow-500 bg-opacity-20'; // Primo posto
+                                        else if (index === 1 || index === 2) positionClass = 'bg-green-500 bg-opacity-20'; // Secondo e terzo
+                                        else if (index >= standings.length - 3) positionClass = 'bg-red-500 bg-opacity-20'; // Zona retrocessione
+                                        
+                                        return `
+                                            <tr class="border-b border-green-700 hover:bg-green-700 ${positionClass}">
+                                                <td class="py-2 px-3 font-bold">${index + 1}</td>
+                                                <td class="py-2 px-3 font-semibold">${team.teams.name}</td>
+                                                <td class="text-center py-2 px-3">${team.games_played}</td>
+                                                <td class="text-center py-2 px-3">${team.wins}</td>
+                                                <td class="text-center py-2 px-3">${team.draws}</td>
+                                                <td class="text-center py-2 px-3">${team.losses}</td>
+                                                <td class="text-center py-2 px-3">${team.goals_for}</td>
+                                                <td class="text-center py-2 px-3">${team.goals_against}</td>
+                                                <td class="text-center py-2 px-3">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
+                                                <td class="text-center py-2 px-3 font-bold text-yellow-400">${team.points}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-4 text-xs text-gray-400">
+                            <div class="flex flex-wrap gap-4">
+                                <span class="flex items-center"><span class="w-3 h-3 bg-yellow-500 bg-opacity-20 rounded mr-1"></span>1° posto</span>
+                                <span class="flex items-center"><span class="w-3 h-3 bg-green-500 bg-opacity-20 rounded mr-1"></span>2°-3° posto</span>
+                                <span class="flex items-center"><span class="w-3 h-3 bg-red-500 bg-opacity-20 rounded mr-1"></span>Zona retrocessione</span>
+                            </div>
+                        </div>
+                    `;
+
+                    standingsContent.innerHTML = standingsHTML;
+                }
                 
             } catch (error) {
                 console.error('Errore nel caricamento della classifica pubblica:', error);
                 document.getElementById('public-standings-content').innerHTML = '<p class="text-red-400">Errore nel caricamento della classifica</p>';
+            }
+        }
+
+        async function loadCupEliminationStandings(competitionId, groupsCount, standingsContent) {
+            try {
+                // Ottieni le partite delle fasi di eliminazione
+                const { data: eliminationMatchdays, error: elimError } = await supabaseClient
+                    .from('matchdays')
+                    .select(`
+                        *,
+                        matches (
+                            id,
+                            home_score,
+                            away_score,
+                            status,
+                            home_team:teams!matches_home_team_id_fkey (id, name),
+                            away_team:teams!matches_away_team_id_fkey (id, name)
+                        )
+                    `)
+                    .eq('competition_id', competitionId)
+                    .in('description', ['Semifinali', 'Semifinale', 'Finale', 'Finale 3° posto'])
+                    .order('round_number', { ascending: true });
+
+                if (elimError) throw elimError;
+
+                let eliminationHTML = '';
+                
+                // Se ci sono fasi di eliminazione, mostrali con evidenza
+                if (eliminationMatchdays && eliminationMatchdays.length > 0) {
+                    eliminationHTML = `
+                        <div class="bg-gradient-to-r from-yellow-500 to-red-500 p-6 rounded-lg shadow-lg mb-6">
+                            <h3 class="text-2xl font-bold text-white mb-4 text-center">🏆 FASI FINALI</h3>
+                            <div class="space-y-4">
+                                ${eliminationMatchdays.map(matchday => {
+                                    const hasMatches = matchday.matches && matchday.matches.length > 0;
+                                    
+                                    return `
+                                        <div class="bg-white bg-opacity-20 backdrop-blur rounded-lg p-4">
+                                            <h4 class="text-lg font-bold text-white mb-3 text-center">
+                                                ${matchday.description}
+                                            </h4>
+                                            ${hasMatches ? `
+                                                <div class="space-y-2">
+                                                    ${matchday.matches.map(match => {
+                                                        if (match.status === 'completed') {
+                                                            const homeWon = (match.home_score || 0) > (match.away_score || 0);
+                                                            const awayWon = (match.away_score || 0) > (match.home_score || 0);
+                                                            const isDraw = (match.home_score || 0) === (match.away_score || 0);
+                                                            
+                                                            return `
+                                                                <div class="flex items-center justify-between p-3 bg-white bg-opacity-30 rounded">
+                                                                    <div class="flex items-center space-x-4">
+                                                                        <span class="font-bold ${homeWon ? 'text-yellow-200' : 'text-white'}">${match.home_team.name}</span>
+                                                                        <span class="text-white font-bold text-lg">${match.home_score || 0} - ${match.away_score || 0}</span>
+                                                                        <span class="font-bold ${awayWon ? 'text-yellow-200' : 'text-white'}">${match.away_team.name}</span>
+                                                                    </div>
+                                                                    ${!isDraw ? `
+                                                                        <div class="text-right">
+                                                                            <span class="bg-yellow-400 text-black px-2 py-1 rounded font-bold text-sm">
+                                                                                🏆 ${homeWon ? match.home_team.name : match.away_team.name}
+                                                                            </span>
+                                                                        </div>
+                                                                    ` : `
+                                                                        <div class="text-right">
+                                                                            <span class="bg-gray-400 text-white px-2 py-1 rounded font-bold text-sm">
+                                                                                PAREGGIO
+                                                                            </span>
+                                                                        </div>
+                                                                    `}
+                                                                </div>
+                                                            `;
+                                                        } else {
+                                                            return `
+                                                                <div class="flex items-center justify-between p-3 bg-white bg-opacity-20 rounded">
+                                                                    <div class="flex items-center space-x-4">
+                                                                        <span class="font-medium text-white">${match.home_team.name}</span>
+                                                                        <span class="text-gray-300">vs</span>
+                                                                        <span class="font-medium text-white">${match.away_team.name}</span>
+                                                                    </div>
+                                                                    <span class="text-gray-300 text-sm">Da giocare</span>
+                                                                </div>
+                                                            `;
+                                                        }
+                                                    }).join('')}
+                                                </div>
+                                            ` : `
+                                                <div class="text-center py-4 text-white">
+                                                    <p class="italic">Partite non ancora generate</p>
+                                                </div>
+                                            `}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Aggiungi le classifiche dei gironi sotto (meno evidenti)
+                const standings = await getStandings(competitionId);
+                let groupStandingsHTML = '';
+                
+                if (standings.length > 0) {
+                    groupStandingsHTML = `
+                        <div class="bg-green-800 p-4 rounded shadow">
+                            <h3 class="text-lg font-semibold mb-4 text-yellow-400">Classifiche Gironi</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full table-auto standings-table text-sm">
+                                    <thead>
+                                        <tr class="border-b border-yellow-400">
+                                            <th class="text-left py-2 px-2">Pos</th>
+                                            <th class="text-left py-2 px-2">Squadra</th>
+                                            <th class="text-center py-2 px-2">G</th>
+                                            <th class="text-center py-2 px-2">V</th>
+                                            <th class="text-center py-2 px-2">N</th>
+                                            <th class="text-center py-2 px-2">P</th>
+                                            <th class="text-center py-2 px-2">GF</th>
+                                            <th class="text-center py-2 px-2">GS</th>
+                                            <th class="text-center py-2 px-2">DR</th>
+                                            <th class="text-center py-2 px-2 font-bold">Pt</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${standings.map((team, index) => {
+                                            let positionClass = '';
+                                            if (index === 0) positionClass = 'bg-green-500 bg-opacity-20'; // Primo posto (qualificato)
+                                            else if (index === 1) positionClass = 'bg-blue-500 bg-opacity-20'; // Secondo posto (possibile qualificato)
+                                            
+                                            return `
+                                                <tr class="border-b border-green-700 hover:bg-green-700 ${positionClass}">
+                                                    <td class="py-1 px-2 font-bold">${index + 1}</td>
+                                                    <td class="py-1 px-2 font-semibold">${team.teams.name}</td>
+                                                    <td class="text-center py-1 px-2">${team.games_played}</td>
+                                                    <td class="text-center py-1 px-2">${team.wins}</td>
+                                                    <td class="text-center py-1 px-2">${team.draws}</td>
+                                                    <td class="text-center py-1 px-2">${team.losses}</td>
+                                                    <td class="text-center py-1 px-2">${team.goals_for}</td>
+                                                    <td class="text-center py-1 px-2">${team.goals_against}</td>
+                                                    <td class="text-center py-1 px-2">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
+                                                    <td class="text-center py-1 px-2 font-bold text-yellow-400">${team.points}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="mt-2 text-xs text-gray-400">
+                                <div class="flex flex-wrap gap-4">
+                                    <span class="flex items-center"><span class="w-3 h-3 bg-green-500 bg-opacity-20 rounded mr-1"></span>1° posto girone (qualificato)</span>
+                                    ${groupsCount === 4 ? '<span class="flex items-center"><span class="w-3 h-3 bg-blue-500 bg-opacity-20 rounded mr-1"></span>2° posto girone (possibile qualificato)</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                standingsContent.innerHTML = eliminationHTML + groupStandingsHTML;
+                
+            } catch (error) {
+                console.error('Errore nel caricamento delle fasi di eliminazione:', error);
+                standingsContent.innerHTML = '<p class="text-red-400">Errore nel caricamento delle fasi finali</p>';
             }
         }
 
@@ -1111,7 +2396,10 @@
                             ${upcomingMatchdays.map(matchday => `
                                 <div class="bg-green-700 p-4 rounded">
                                     <h5 class="font-semibold mb-3 text-yellow-300">
-                                        Giornata ${matchday.round_number}
+                                        ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description) 
+                                            ? matchday.description 
+                                            : `Giornata ${matchday.round_number}${matchday.description ? ` - ${matchday.description}` : ''}`
+                                        }
                                         ${matchday.date ? `- ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
                                     </h5>
                                     <div class="space-y-2">
@@ -1140,7 +2428,10 @@
                             ${completedMatchdays.reverse().map(matchday => `
                                 <div class="bg-green-700 p-4 rounded">
                                     <h5 class="font-semibold mb-3 text-yellow-300">
-                                        Giornata ${matchday.round_number}
+                                        ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description) 
+                                            ? matchday.description 
+                                            : `Giornata ${matchday.round_number}${matchday.description ? ` - ${matchday.description}` : ''}`
+                                        }
                                         ${matchday.date ? `- ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
                                     </h5>
                                     <div class="space-y-2">
@@ -1302,40 +2593,60 @@
                     return;
                 }
 
-                const calendarHTML = matchdays.map(matchday => `
-                    <div class="bg-green-800 p-6 rounded shadow">
-                        <h3 class="text-xl font-semibold mb-4 text-yellow-400">
-                            Giornata ${matchday.round_number}
-                            ${matchday.date ? `- ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
-                        </h3>
-                        
-                        <div class="space-y-3">
-                            ${matchday.matches.map(match => `
-                                <div class="flex items-center justify-between p-3 bg-green-700 rounded">
-                                    <div class="flex items-center space-x-4">
-                                        <span class="font-semibold">${match.home_team.name}</span>
-                                        <span class="text-yellow-400">VS</span>
-                                        <span class="font-semibold">${match.away_team.name}</span>
+                const calendarHTML = matchdays.map(matchday => {
+                    // Raggruppa le partite per girone se presente
+                    const matchesByGroup = {};
+                    const noGroupMatches = [];
+                    
+                    matchday.matches.forEach(match => {
+                        if (match.group_letter) {
+                            if (!matchesByGroup[match.group_letter]) {
+                                matchesByGroup[match.group_letter] = [];
+                            }
+                            matchesByGroup[match.group_letter].push(match);
+                        } else {
+                            noGroupMatches.push(match);
+                        }
+                    });
+                    
+                    return `
+                        <div class="bg-green-800 p-6 rounded shadow">
+                            <h3 class="text-xl font-semibold mb-4 text-yellow-400">
+                                ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description) 
+                                    ? matchday.description 
+                                    : `Giornata ${matchday.round_number}${matchday.description ? ` - ${matchday.description}` : ''}`
+                                }
+                                ${matchday.date ? ` - ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
+                            </h3>
+                            
+                            ${Object.keys(matchesByGroup).length > 0 ? 
+                                Object.keys(matchesByGroup).sort().map(groupLetter => `
+                                    <div class="mb-6">
+                                        <h4 class="text-lg font-medium mb-3 text-blue-300">Girone ${groupLetter}</h4>
+                                        <div class="space-y-3">
+                                            ${matchesByGroup[groupLetter].map(match => generateMatchHTML(match)).join('')}
+                                        </div>
                                     </div>
-                                    
-                                    <div class="flex items-center space-x-2">
-                                        ${match.status === 'completed' ? 
-                                            `<span class="text-green-300 font-bold">${match.home_score || 0} - ${match.away_score || 0}</span>
-                                             <button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}', ${match.home_score || 0}, ${match.away_score || 0})" 
-                                                     class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm">
-                                                Modifica
-                                            </button>` :
-                                            `<button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}', null, null)" 
-                                                     class="bg-yellow-400 text-green-900 px-3 py-1 rounded text-sm hover:bg-yellow-300">
-                                                Inserisci Risultato
-                                            </button>`
+                                `).join('') : ''
+                            }
+                            
+                            ${noGroupMatches.length > 0 ? `
+                                <div class="space-y-3">
+                                    ${noGroupMatches.map(match => generateMatchHTML(match)).join('')}
+                                </div>
+                            ` : `
+                                ${Object.keys(matchesByGroup).length === 0 ? `
+                                    <div class="text-center py-4 text-gray-400 italic">
+                                        ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description) 
+                                            ? 'Nessuna partita generata ancora. Usa il pulsante delle fasi finali per creare le partite.' 
+                                            : 'Nessuna partita programmata per questa giornata'
                                         }
                                     </div>
-                                </div>
-                            `).join('')}
+                                ` : ''}`
+                            }
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 calendarContent.innerHTML = calendarHTML;
                 
@@ -1345,52 +2656,95 @@
             }
         }
 
+        // Funzione helper per generare HTML delle partite
+        function generateMatchHTML(match) {
+            return `
+                <div class="flex items-center justify-between p-3 bg-green-700 rounded">
+                    <div class="flex items-center space-x-4">
+                        <span class="font-semibold">${match.home_team.name}</span>
+                        <span class="text-yellow-400">VS</span>
+                        <span class="font-semibold">${match.away_team.name}</span>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        ${match.status === 'completed' ? 
+                            `<span class="text-green-300 font-bold">${match.home_score || 0} - ${match.away_score || 0}</span>
+                             <button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}', ${match.home_score || 0}, ${match.away_score || 0})" 
+                                     class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm">
+                                Modifica
+                            </button>` :
+                            `<button onclick="openMatchResultModal('${match.id}', '${match.home_team.name}', '${match.away_team.name}', '${match.home_team.id}', '${match.away_team.id}', null, null)" 
+                                     class="bg-yellow-400 text-green-900 px-3 py-1 rounded text-sm hover:bg-yellow-300">
+                                Inserisci Risultato
+                            </button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
         async function loadStandings(competitionId) {
             try {
-                const standings = await getStandings(competitionId);
+                // Prima ottieni i dettagli della competizione per determinare il tipo
+                const { data: competition, error: compError } = await supabaseClient
+                    .from('competitions')
+                    .select('type, groups_count')
+                    .eq('id', competitionId)
+                    .single();
+                
+                if (compError) throw compError;
+                
                 const standingsContent = document.getElementById('standings-content');
                 
-                if (standings.length === 0) {
-                    standingsContent.innerHTML = '<p class="text-gray-400 italic">Nessuna classifica disponibile</p>';
-                    return;
-                }
+                // Se è una coppa, mostra le fasi di eliminazione con evidenza
+                if (competition.type === 'cup') {
+                    await loadCupEliminationStandings(competitionId, competition.groups_count, standingsContent);
+                } else {
+                    // Classifica normale per le leghe
+                    const standings = await getStandings(competitionId);
+                    
+                    if (standings.length === 0) {
+                        standingsContent.innerHTML = '<p class="text-gray-400 italic">Nessuna classifica disponibile</p>';
+                        return;
+                    }
 
-                const standingsHTML = `
-                    <table class="w-full table-auto standings-table">
-                        <thead>
-                            <tr class="border-b border-yellow-400">
-                                <th class="text-left py-2 px-3">Pos</th>
-                                <th class="text-left py-2 px-3">Squadra</th>
-                                <th class="text-center py-2 px-3">G</th>
-                                <th class="text-center py-2 px-3">V</th>
-                                <th class="text-center py-2 px-3">N</th>
-                                <th class="text-center py-2 px-3">P</th>
-                                <th class="text-center py-2 px-3">GF</th>
-                                <th class="text-center py-2 px-3">GS</th>
-                                <th class="text-center py-2 px-3">DR</th>
-                                <th class="text-center py-2 px-3 font-bold">Pt</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${standings.map((team, index) => `
-                                <tr class="border-b border-green-700 hover:bg-green-700">
-                                    <td class="py-2 px-3 font-bold">${index + 1}</td>
-                                    <td class="py-2 px-3 font-semibold">${team.teams.name}</td>
-                                    <td class="text-center py-2 px-3">${team.games_played}</td>
-                                    <td class="text-center py-2 px-3">${team.wins}</td>
-                                    <td class="text-center py-2 px-3">${team.draws}</td>
-                                    <td class="text-center py-2 px-3">${team.losses}</td>
-                                    <td class="text-center py-2 px-3">${team.goals_for}</td>
-                                    <td class="text-center py-2 px-3">${team.goals_against}</td>
-                                    <td class="text-center py-2 px-3">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
-                                    <td class="text-center py-2 px-3 font-bold text-yellow-400">${team.points}</td>
+                    const standingsHTML = `
+                        <table class="w-full table-auto standings-table">
+                            <thead>
+                                <tr class="border-b border-yellow-400">
+                                    <th class="text-left py-2 px-3">Pos</th>
+                                    <th class="text-left py-2 px-3">Squadra</th>
+                                    <th class="text-center py-2 px-3">G</th>
+                                    <th class="text-center py-2 px-3">V</th>
+                                    <th class="text-center py-2 px-3">N</th>
+                                    <th class="text-center py-2 px-3">P</th>
+                                    <th class="text-center py-2 px-3">GF</th>
+                                    <th class="text-center py-2 px-3">GS</th>
+                                    <th class="text-center py-2 px-3">DR</th>
+                                    <th class="text-center py-2 px-3 font-bold">Pt</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
+                            </thead>
+                            <tbody>
+                                ${standings.map((team, index) => `
+                                    <tr class="border-b border-green-700 hover:bg-green-700">
+                                        <td class="py-2 px-3 font-bold">${index + 1}</td>
+                                        <td class="py-2 px-3 font-semibold">${team.teams.name}</td>
+                                        <td class="text-center py-2 px-3">${team.games_played}</td>
+                                        <td class="text-center py-2 px-3">${team.wins}</td>
+                                        <td class="text-center py-2 px-3">${team.draws}</td>
+                                        <td class="text-center py-2 px-3">${team.losses}</td>
+                                        <td class="text-center py-2 px-3">${team.goals_for}</td>
+                                        <td class="text-center py-2 px-3">${team.goals_against}</td>
+                                        <td class="text-center py-2 px-3">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
+                                        <td class="text-center py-2 px-3 font-bold text-yellow-400">${team.points}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
 
-                standingsContent.innerHTML = standingsHTML;
+                    standingsContent.innerHTML = standingsHTML;
+                }
                 
             } catch (error) {
                 console.error('Errore nel caricamento della classifica:', error);
@@ -1400,23 +2754,78 @@
 
         async function generateCalendarForCompetition(competitionId) {
             try {
+                // Verifica se esistono già giornate per questa competizione
+                const { data: existingMatchdays, error: checkError } = await supabaseClient
+                    .from('matchdays')
+                    .select('id')
+                    .eq('competition_id', competitionId)
+                    .limit(1);
+                
+                if (checkError) throw checkError;
+                
+                // Se esistono già giornate, chiedi conferma prima di cancellare
+                if (existingMatchdays && existingMatchdays.length > 0) {
+                    const confirmDelete = confirm(
+                        '⚠️ ATTENZIONE: Esiste già un calendario per questa competizione.\n\n' +
+                        'Rigenerare il calendario cancellerà:\n' +
+                        '• Tutte le giornate esistenti\n' +
+                        '• Tutti i risultati inseriti\n' +
+                        '• Tutta la classifica attuale\n\n' +
+                        'Sei sicuro di voler continuare?'
+                    );
+                    
+                    if (!confirmDelete) {
+                        showError('Generazione calendario annullata dall\'utente');
+                        return;
+                    }
+                    
+                    // Solo ora elimina il calendario esistente
+                    await clearExistingCalendar(competitionId);
+                }
+                
+                // Ottieni informazioni sulla competizione
+                const { data: competition, error: compError } = await supabaseClient
+                    .from('competitions')
+                    .select('type, groups_count')
+                    .eq('id', competitionId)
+                    .single();
+                
+                if (compError) throw compError;
+                
+                console.log(`🏆 Generazione calendario per competizione:`, {
+                    id: competitionId,
+                    type: competition.type,
+                    groups_count: competition.groups_count
+                });
+                
                 const teams = await getTeamsByCompetition(competitionId);
+                console.log(`👥 Squadre trovate: ${teams.length}`, teams.map(t => t.name));
                 
                 if (teams.length < 2) {
                     alert('Servono almeno 2 squadre per generare il calendario');
                     return;
                 }
 
-                const schedule = generateRoundRobinSchedule(teams);
-                
-                // Crea le giornate e partite nel database
-                for (const round of schedule) {
-                    // Crea la giornata
-                    const matchday = await createMatchday(competitionId, round.round, null);
+                if (competition.type === 'cup') {
+                    console.log('🏆 Generazione calendario COPPA');
+                    await generateCupCalendar(competitionId, teams, competition.groups_count || 2);
+                } else if (competition.type === 'elimination') {
+                    console.log('🏆 Generazione calendario ELIMINAZIONE');
+                    await generateEliminationCalendar(competitionId, teams);
+                } else {
+                    console.log('🏆 Generazione calendario CAMPIONATO ALL\'ITALIANA');
+                    // Campionato all'italiana
+                    const schedule = generateRoundRobinSchedule(teams);
                     
-                    // Crea le partite
-                    for (const match of round.matches) {
-                        await createMatch(matchday.id, match.home_team.id, match.away_team.id);
+                    // Crea le giornate e partite nel database
+                    for (const round of schedule) {
+                        // Crea la giornata
+                        const matchday = await createMatchday(competitionId, round.round, null);
+                        
+                        // Crea le partite
+                        for (const match of round.matches) {
+                            await createMatch(matchday.id, match.home_team.id, match.away_team.id);
+                        }
                     }
                 }
 
@@ -1427,6 +2836,53 @@
             } catch (error) {
                 console.error('Errore nella generazione del calendario:', error);
                 showError('Errore nella generazione del calendario: ' + error.message);
+            }
+        }
+
+        // Funzione per cancellare il calendario esistente
+        async function clearExistingCalendar(competitionId) {
+            try {
+                // Prima ottieni gli ID delle giornate di questa competizione
+                const { data: matchdays, error: matchdaysSelectError } = await supabaseClient
+                    .from('matchdays')
+                    .select('id')
+                    .eq('competition_id', competitionId);
+
+                if (matchdaysSelectError) {
+                    console.log('Errore nel recupero delle giornate:', matchdaysSelectError);
+                    return;
+                }
+
+                if (matchdays && matchdays.length > 0) {
+                    const matchdayIds = matchdays.map(md => md.id);
+                    
+                    // Elimina tutte le partite di queste giornate
+                    const { error: matchesError } = await supabaseClient
+                        .from('matches')
+                        .delete()
+                        .in('matchday_id', matchdayIds);
+
+                    if (matchesError) {
+                        console.log('Errore nell\'eliminazione delle partite:', matchesError);
+                    }
+
+                    // Poi elimina tutte le giornate di questa competizione
+                    const { error: matchdaysError } = await supabaseClient
+                        .from('matchdays')
+                        .delete()
+                        .eq('competition_id', competitionId);
+
+                    if (matchdaysError) {
+                        console.log('Errore nell\'eliminazione delle giornate:', matchdaysError);
+                        throw matchdaysError;
+                    }
+                }
+                
+                console.log('✅ Calendario esistente cancellato per la competizione:', competitionId);
+                
+            } catch (error) {
+                console.log('Errore nella cancellazione del calendario esistente:', error);
+                throw error; // Rilancia l'errore per evitare duplicati
             }
         }
 
@@ -1568,6 +3024,29 @@
             modal.dataset.competitionId = competitionId;
             document.getElementById('edit-competition-name').value = competitionName;
             document.getElementById('edit-competition-type').value = competitionType;
+            
+            // Gestisce la visibilità dei campi gironi
+            const cupGroupsContainer = document.getElementById('edit-cup-groups-container');
+            if (competitionType === 'cup') {
+                cupGroupsContainer.style.display = 'block';
+                // Carica il numero di gironi esistente se disponibile
+                try {
+                    const { data: competition, error } = await supabaseClient
+                        .from('competitions')
+                        .select('groups_count')
+                        .eq('id', competitionId)
+                        .single();
+                    
+                    if (!error && competition.groups_count) {
+                        document.getElementById('edit-cup-groups').value = competition.groups_count;
+                    }
+                } catch (error) {
+                    console.log('Errore nel caricamento dei gironi:', error);
+                }
+            } else {
+                cupGroupsContainer.style.display = 'none';
+            }
+            
             modal.classList.remove('hidden');
             await updateEditTeamsList(competitionId);
         }
@@ -1600,7 +3079,7 @@
                 }
 
                 select.innerHTML = '<option value="">Seleziona una giornata</option>' + 
-                    matchdays.map(md => `<option value="${md.id}">Giornata ${md.round_number}</option>`).join('');
+                    matchdays.map(md => `<option value="${md.id}">${md.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(md.description) ? md.description : `Giornata ${md.round_number}${md.description ? ` - ${md.description}` : ''}`}</option>`).join('');
                 
             } catch (error) {
                 console.error('Errore nel caricamento delle giornate:', error);
@@ -1889,6 +3368,8 @@
                         adminSection.classList.remove('hidden');
                         logoutBtn.classList.remove('hidden');
                         showSuccess(`Benvenuto ${user.email}`);
+                        setupActivityListeners(); // Attiva monitoraggio inattività
+                        resetLogoutTimer(); // Inizia timer logout
                         await loadCompetitions();
                     }
                 } catch (error) {
@@ -1903,8 +3384,36 @@
 
                     console.log('🔐 Tentativo di login per:', email);
 
+                    // Validazione input rafforzata
                     if (!email || !password) {
                         showError('Inserisci email e password');
+                        return;
+                    }
+
+                    // Rate limiting basic (max 5 tentativi in 5 minuti)
+                    const now = Date.now();
+                    if (now - lastLoginAttempt < 60000 && loginAttempts >= 5) {
+                        showError('Troppi tentativi di login. Riprova tra un minuto.');
+                        return;
+                    }
+                    
+                    if (now - lastLoginAttempt > 300000) { // Reset dopo 5 minuti
+                        loginAttempts = 0;
+                    }
+                    
+                    loginAttempts++;
+                    lastLoginAttempt = now;
+
+                    // Validazione formato email
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email)) {
+                        showError('Formato email non valido');
+                        return;
+                    }
+
+                    // Limitazione lunghezza password (evita attacchi DoS)
+                    if (password.length > 128) {
+                        showError('Password troppo lunga');
                         return;
                     }
 
@@ -1916,15 +3425,21 @@
                         const result = await login(email, password);
                         console.log('✅ Login riuscito:', result);
                         
+                        // Reset contatori su login riuscito
+                        loginAttempts = 0;
+                        
                         adminSection.classList.remove('hidden');
                         logoutBtn.classList.remove('hidden');
                         emailInput.value = '';
                         passwordInput.value = '';
                         showSuccess('Accesso effettuato con successo');
+                        setupActivityListeners(); // Attiva monitoraggio inattività
+                        resetLogoutTimer(); // Inizia timer logout
                         await loadCompetitions();
                     } catch (error) {
                         console.error('❌ Errore login:', error);
-                        showError('Errore di accesso: ' + (error.message || 'Credenziali non valide'));
+                        // Non esporre dettagli dell'errore per sicurezza
+                        showError('Credenziali non valide o errore di connessione');
                     } finally {
                         loginBtn.textContent = 'Accedi';
                         loginBtn.disabled = false;
@@ -1935,11 +3450,24 @@
                 logoutBtn.addEventListener('click', async () => {
                     try {
                         await logout();
+                        if (logoutTimer) {
+                            clearTimeout(logoutTimer); // Pulisce timer
+                        }
                         adminSection.classList.add('hidden');
                         logoutBtn.classList.add('hidden');
                         showSuccess('Logout effettuato con successo');
                     } catch (error) {
                         showError('Errore durante il logout: ' + error.message);
+                    }
+                });
+
+                // Event listener per mostrare/nascondere campi gironi
+                document.getElementById('competition-type').addEventListener('change', (e) => {
+                    const cupGroupsContainer = document.getElementById('cup-groups-container');
+                    if (e.target.value === 'cup') {
+                        cupGroupsContainer.style.display = 'block';
+                    } else {
+                        cupGroupsContainer.style.display = 'none';
                     }
                 });
 
@@ -1949,6 +3477,7 @@
                     
                     const name = document.getElementById('competition-name').value.trim();
                     const type = document.getElementById('competition-type').value;
+                    const groupsCount = type === 'cup' ? parseInt(document.getElementById('cup-groups').value) : null;
                     
                     if (!name) {
                         showError('Inserisci il nome del campionato');
@@ -1956,10 +3485,12 @@
                     }
 
                     try {
-                        const competition = await createCompetition(name, type, '2024/2025');
+                        const competition = await createCompetition(name, type, '2024/2025', groupsCount);
                         await loadCompetitions();
                         await loadPublicCompetitions();
                         e.target.reset();
+                        // Reset visibility of cup groups
+                        document.getElementById('cup-groups-container').style.display = 'none';
                         openTeamsCreationModal(competition.id, competition.name, competition.type);
                         showSuccess('Campionato creato con successo: ' + competition.name);
                     } catch (error) {
@@ -2003,6 +3534,16 @@
                     }
                 });
 
+                // Event listener per mostrare/nascondere campi gironi nel form di modifica
+                document.getElementById('edit-competition-type').addEventListener('change', (e) => {
+                    const cupGroupsContainer = document.getElementById('edit-cup-groups-container');
+                    if (e.target.value === 'cup') {
+                        cupGroupsContainer.style.display = 'block';
+                    } else {
+                        cupGroupsContainer.style.display = 'none';
+                    }
+                });
+
                 // Modifica campionato
                 document.getElementById('edit-competition-form').addEventListener('submit', async (e) => {
                     e.preventDefault();
@@ -2010,6 +3551,7 @@
                     const competitionId = document.getElementById('edit-competition-modal').dataset.competitionId;
                     const name = document.getElementById('edit-competition-name').value.trim();
                     const type = document.getElementById('edit-competition-type').value;
+                    const groupsCount = type === 'cup' ? parseInt(document.getElementById('edit-cup-groups').value) : null;
                     
                     if (!name) {
                         alert('Inserisci il nome del campionato');
@@ -2017,7 +3559,7 @@
                     }
 
                     try {
-                        await updateCompetition(competitionId, { name, type });
+                        await updateCompetition(competitionId, { name, type, groups_count: groupsCount });
                         await loadCompetitions();
                         await updateEditTeamsList(competitionId);
                         alert('Campionato aggiornato con successo');
@@ -2121,6 +3663,143 @@
                     await generateCalendarForCompetition(competitionId);
                 });
 
+                // Event listener per generare le fasi finali della coppa
+                document.getElementById('generate-finals').addEventListener('click', async () => {
+                    const competitionId = document.getElementById('calendar-competition-select').value;
+                    if (!competitionId) {
+                        alert('Seleziona un campionato');
+                        return;
+                    }
+                    
+                    // Ottieni il tipo di fase da generare
+                    const { data: competition } = await supabaseClient
+                        .from('competitions')
+                        .select('groups_count')
+                        .eq('id', competitionId)
+                        .single();
+
+                    const nextPhase = await determineNextPhase(competitionId, competition.groups_count);
+                    let confirmMessage = '';
+                    
+                    switch (nextPhase) {
+                        case 'semifinals':
+                            confirmMessage = 'Vuoi generare le semifinali basandoti sui risultati dei gironi?';
+                            break;
+                        case 'finals':
+                            confirmMessage = 'Vuoi generare la finale basandoti sui risultati delle semifinali?';
+                            break;
+                        case 'third_place':
+                            confirmMessage = 'Vuoi generare la finale per il 3° posto?';
+                            break;
+                        case 'complete':
+                            confirmMessage = 'Le fasi finali esistono già.\n\nVuoi rigenerarle? (Questo cancellerà i risultati esistenti)';
+                            break;
+                        default:
+                            alert('Errore nel determinare la fase successiva!');
+                            return;
+                    }
+                    
+                    if (!confirm(confirmMessage)) {
+                        console.log('🚫 Utente ha annullato la generazione delle fasi finali');
+                        return;
+                    }
+                    
+                    console.log('🚀 Inizio generazione fasi finali...');
+                    
+                    try {
+                        await generateEliminationMatches(competitionId);
+                        console.log('✅ Fasi finali generate con successo');
+                        
+                        // Ricarica il calendario per mostrare le nuove partite
+                        await loadCalendar(competitionId);
+                        console.log('✅ Calendario ricaricato');
+                        
+                    } catch (error) {
+                        console.error('❌ Errore durante la generazione delle fasi finali:', error);
+                        showError('❌ Errore durante la generazione: ' + error.message);
+                        return;
+                    }
+                    
+                    // Aggiorna il testo del pulsante
+                    const finalsBtn = document.getElementById('generate-finals');
+                    try {
+                        const newNextPhase = await determineNextPhase(competitionId, competition.groups_count);
+                        switch (newNextPhase) {
+                            case 'semifinals':
+                                finalsBtn.textContent = 'Genera Semifinali';
+                                break;
+                            case 'finals':
+                                finalsBtn.textContent = 'Genera Finale';
+                                break;
+                            case 'third_place':
+                                finalsBtn.textContent = 'Genera Finale 3° posto';
+                                break;
+                            case 'complete':
+                                finalsBtn.textContent = 'Rigenera Fasi Finali';
+                                finalsBtn.disabled = false;
+                                finalsBtn.className = 'bg-orange-600 text-white px-4 py-2 rounded font-semibold hover:bg-orange-700';
+                                break;
+                        }
+                    } catch (error) {
+                        console.error('Errore nell\'aggiornamento del pulsante:', error);
+                    }
+                });
+
+                // Event listener per riparare le fasi finali
+                document.getElementById('repair-finals').addEventListener('click', async () => {
+                    const competitionId = document.getElementById('calendar-competition-select').value;
+                    if (!competitionId) {
+                        alert('Seleziona un campionato');
+                        return;
+                    }
+
+                    if (!confirm('🔧 RIPARAZIONE FASI FINALI\n\nQuesta operazione creerà le giornate mancanti per le fasi finali di questa coppa.\n\n⚠️ NOTA: Verranno create solo le giornate vuote, non le partite.\n\nVuoi continuare?')) {
+                        return;
+                    }
+
+                    try {
+                        // Ottieni informazioni sulla competizione
+                        const { data: competition } = await supabaseClient
+                            .from('competitions')
+                            .select('type, groups_count')
+                            .eq('id', competitionId)
+                            .single();
+
+                        if (competition.type !== 'cup') {
+                            alert('❌ Questa funzione è disponibile solo per le competizioni di tipo "coppa"');
+                            return;
+                        }
+
+                        // Calcola il prossimo round number
+                        const { data: lastMatchday } = await supabaseClient
+                            .from('matchdays')
+                            .select('round_number')
+                            .eq('competition_id', competitionId)
+                            .order('round_number', { ascending: false })
+                            .limit(1)
+                            .single();
+                            
+                        const nextRoundNumber = lastMatchday ? lastMatchday.round_number + 1 : 1;
+                        console.log('🔧 Riparazione: prossimo numero giornata:', nextRoundNumber);
+
+                        // Crea le fasi mancanti
+                        await createEliminationPhases(competitionId, competition.groups_count, nextRoundNumber);
+                        
+                        // Ricarica il calendario
+                        await loadCalendar(competitionId);
+                        
+                        // Nascondi il pulsante di riparazione e aggiorna quello principale
+                        document.getElementById('repair-finals').style.display = 'none';
+                        await updateFinalsButtonText(competitionId, competition.groups_count);
+                        
+                        showSuccess('✅ Fasi finali riparate con successo! Ora puoi generare le partite.');
+                        
+                    } catch (error) {
+                        console.error('❌ Errore durante la riparazione:', error);
+                        showError('❌ Errore nella riparazione: ' + error.message);
+                    }
+                });
+
                 // Event listeners per il ricalcolo delle classifiche
                 document.getElementById('recalculate-standings').addEventListener('click', async () => {
                     const competitionId = document.getElementById('standings-competition-select').value;
@@ -2194,8 +3873,16 @@
                 document.getElementById('calendar-competition-select').addEventListener('change', async (e) => {
                     const competitionId = e.target.value;
                     const generateBtn = document.getElementById('generate-calendar');
+                    const finalsBtn = document.getElementById('generate-finals');
                     
                     if (competitionId) {
+                        // Ottieni informazioni sulla competizione per sapere se è una coppa
+                        const { data: competition } = await supabaseClient
+                            .from('competitions')
+                            .select('type, groups_count')
+                            .eq('id', competitionId)
+                            .single();
+
                         await loadCalendar(competitionId);
                         
                         // Controlla se esiste già un calendario e aggiorna il pulsante
@@ -2207,10 +3894,20 @@
                             generateBtn.textContent = 'Genera Calendario';
                             generateBtn.className = 'bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300';
                         }
+
+                        // Mostra il pulsante "Genera Fasi Finali" solo per le coppe
+                        if (competition && competition.type === 'cup') {
+                            // Usa la funzione per aggiornare il testo del pulsante e gestire la visibilità del repair
+                            await updateFinalsButtonText(competitionId, competition.groups_count);
+                        } else {
+                            finalsBtn.style.display = 'none';
+                            document.getElementById('repair-finals').style.display = 'none';
+                        }
                     } else {
                         document.getElementById('calendar-content').innerHTML = '<p class="text-gray-400 italic">Seleziona un campionato per visualizzare il calendario</p>';
                         generateBtn.textContent = 'Genera Calendario';
                         generateBtn.className = 'bg-yellow-400 text-green-900 px-4 py-2 rounded font-semibold hover:bg-yellow-300';
+                        finalsBtn.style.display = 'none';
                     }
                 });
 
