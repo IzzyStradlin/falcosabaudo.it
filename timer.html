@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Header di sicurezza -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self'; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';" />
+    <title>Timer Partita - Falco Sabaudo</title>
+    <link rel="canonical" href="https://falcosabaudo.it/timer.html" />
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+    <meta name="robots" content="index, follow">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <meta name="description" content="Timer per le partite di Subbuteo - Falco Sabaudo Torino" />
+    <meta name="keywords" content="Subbuteo, Timer, Partita, Falco Sabaudo, Torino" />
+    <style>
+        /* Stili personalizzati per il timer */
+        .timer-container {
+            background: linear-gradient(135deg, rgba(20, 83, 45, 0.9) 0%, rgba(16, 185, 129, 0.1) 100%);
+            border: 2px solid #fbbf24;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .timer-display {
+            font-family: 'Courier New', monospace;
+            font-size: 180px;
+            font-weight: bold;
+            text-align: center;
+            color: #fbbf24;
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+            letter-spacing: 10px;
+            margin: 30px 0;
+            min-height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-display.running {
+            animation: pulse-timer 1s infinite;
+        }
+
+        @keyframes pulse-timer {
+            0%, 100% {
+                text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+            }
+            50% {
+                text-shadow: 0 0 40px rgba(251, 191, 36, 0.8);
+            }
+        }
+
+        .countdown-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 300px;
+            font-weight: bold;
+            color: #fbbf24;
+            text-shadow: 0 0 50px rgba(251, 191, 36, 0.8);
+            animation: countdown-pulse 1s ease-out;
+        }
+
+        @keyframes countdown-pulse {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .control-button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 2px solid #fbbf24;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .control-button.start {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .control-button.start:hover {
+            background-color: #059669;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+            transform: scale(1.05);
+        }
+
+        .control-button.pause {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .control-button.pause:hover {
+            background-color: #d97706;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+            transform: scale(1.05);
+        }
+
+        .control-button.stop {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .control-button.stop:hover {
+            background-color: #dc2626;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+            transform: scale(1.05);
+        }
+
+        .control-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .input-group {
+            background-color: rgba(20, 83, 45, 0.5);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #fbbf24;
+            margin: 15px 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #fbbf24;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .input-group select,
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .input-group select option {
+            background-color: #1f2937;
+            color: white;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            background-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .preset-button {
+            padding: 12px;
+            background-color: rgba(16, 185, 129, 0.3);
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            color: #10b981;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .preset-button:hover {
+            background-color: rgba(16, 185, 129, 0.6);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .preset-button.active {
+            background-color: #10b981;
+            color: white;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .mode-button {
+            padding: 15px;
+            background-color: rgba(16, 185, 129, 0.3);
+            border: 2px solid #10b981;
+            border-radius: 10px;
+            color: #10b981;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .mode-button:hover {
+            background-color: rgba(16, 185, 129, 0.5);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .mode-button.active {
+            background-color: #10b981;
+            color: white;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.7);
+        }
+
+        .clock-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            min-height: 300px;
+        }
+
+        /* Stili per orologio analogico */
+        .analog-clock {
+            width: 250px;
+            height: 250px;
+            border: 8px solid #fbbf24;
+            border-radius: 50%;
+            background-color: rgba(20, 83, 45, 0.8);
+            position: relative;
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.5), inset 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .analog-clock::before {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #fbbf24;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            background-color: #fbbf24;
+            border-radius: 10px;
+        }
+
+        .hour-hand {
+            width: 6px;
+            height: 60px;
+            margin-left: -3px;
+        }
+
+        .minute-hand {
+            width: 4px;
+            height: 80px;
+            margin-left: -2px;
+        }
+
+        .second-hand {
+            width: 2px;
+            height: 90px;
+            margin-left: -1px;
+            background-color: #ef4444;
+        }
+
+        .analog-clock .number {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fbbf24;
+        }
+
+        .analog-clock .number span {
+            display: inline-block;
+            position: absolute;
+            left: 50%;
+            width: 30px;
+            margin-left: -15px;
+        }
+
+        @media (max-width: 768px) {
+            .timer-container {
+                padding: 20px;
+            }
+
+            .timer-display {
+                font-size: 60px;
+                letter-spacing: 5px;
+            }
+
+            .control-button {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+
+            .mode-selector,
+            .preset-buttons {
+                grid-template-columns: 1fr;
+            }
+
+            .analog-clock {
+                width: 200px;
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-green-900 text-white font-sans">
+    <header class="text-center py-8 border-b border-yellow-400">
+        <img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4" />
+        <h1 class="text-4xl font-bold">Timer Partita</h1>
+        <nav class="mt-4">
+            <a href="index.html" class="text-yellow-400 underline mx-2">Home</a>
+            <a href="storia.html" class="text-yellow-400 underline mx-2">La nostra storia</a>
+            <a href="campionato.html" class="text-yellow-400 underline mx-2">Gestione Campionato</a>
+            <a href="timer.html" class="text-yellow-400 underline mx-2 font-bold">Timer Partita</a>
+        </nav>
+    </header>
+
+    <main class="px-6 py-8">
+        <div class="max-w-2xl mx-auto">
+            <!-- Timer Container -->
+            <div class="timer-container">
+                <!-- Display Digitale -->
+                <div id="digital-display" class="timer-display">00:00</div>
+
+                <!-- Configurazione Timer -->
+                <div class="input-group">
+                    <label>Tipo di Timer</label>
+                    <div class="preset-buttons">
+                        <button class="preset-button" onclick="setPreset(10)">10 Minuti</button>
+                        <button class="preset-button active" onclick="setPreset(15)">15 Minuti</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="custom-time">Tempo Custom (MM:SS)</label>
+                    <input type="text" id="custom-time" placeholder="05:30" />
+                </div>
+
+                <!-- Controlli -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                    <button class="control-button start">▶ Start</button>
+                    <button class="control-button pause" disabled id="pause-btn">⏸ Pausa</button>
+                    <button class="control-button stop" disabled id="stop-btn">⏹ Stop</button>
+                </div>
+
+                <!-- Info -->
+                </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-6 text-sm text-green-300 border-t border-yellow-400 mt-12">
+        © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
+    </footer>
+
+    <script>
+        // Variabili globali
+        let timeInSeconds = 15 * 60; // Default 15 minuti
+        let remainingTime = timeInSeconds;
+        let isRunning = false;
+        let isPaused = false;
+        let timerInterval = null;
+        let currentMode = 'digital';
+        let maxTime = 15 * 60;
+        let whistleAudioFile = null; // Per il file MP3 personalizzato
+
+        // Web Audio API per i suoni (fallback)
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Funzione per impostare il file fischio personalizzato
+        function setWhistleFile(mp3FilePath) {
+            whistleAudioFile = mp3FilePath;
+        }
+
+        // Funzione per riprodurre il fischio
+        function playWhistle() {
+            if (whistleAudioFile) {
+                // Se hai fornito un file MP3
+                const audio = new Audio(whistleAudioFile);
+                audio.volume = 0.7;
+                audio.play().catch(e => console.log('Errore riproduzione audio:', e));
+            } else {
+                // Fallback: suono sintetico
+                playDefaultWhistle();
+            }
+        }
+
+        // Suono sintetico di default
+        function playDefaultWhistle() {
+            const now = audioContext.currentTime;
+            const duration = 0.8;
+            
+            try {
+                const osc1 = audioContext.createOscillator();
+                const osc2 = audioContext.createOscillator();
+                const osc3 = audioContext.createOscillator();
+                
+                const gainMaster = audioContext.createGain();
+                const gainOsc1 = audioContext.createGain();
+                const gainOsc2 = audioContext.createGain();
+                const gainOsc3 = audioContext.createGain();
+                
+                const filter = audioContext.createBiquadFilter();
+                
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(2000, now);
+                osc1.frequency.exponentialRampToValueAtTime(1800, now + duration);
+                gainOsc1.gain.setValueAtTime(0.3, now);
+                gainOsc1.gain.linearRampToValueAtTime(0.25, now + duration);
+                
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(3200, now);
+                osc2.frequency.exponentialRampToValueAtTime(2800, now + duration);
+                gainOsc2.gain.setValueAtTime(0.2, now);
+                gainOsc2.gain.linearRampToValueAtTime(0.15, now + duration);
+                
+                osc3.type = 'triangle';
+                osc3.frequency.setValueAtTime(1600, now);
+                osc3.frequency.exponentialRampToValueAtTime(1400, now + duration);
+                gainOsc3.gain.setValueAtTime(0.15, now);
+                gainOsc3.gain.linearRampToValueAtTime(0.1, now + duration);
+                
+                osc1.connect(gainOsc1);
+                osc2.connect(gainOsc2);
+                osc3.connect(gainOsc3);
+                
+                gainOsc1.connect(gainMaster);
+                gainOsc2.connect(gainMaster);
+                gainOsc3.connect(gainMaster);
+                
+                gainMaster.connect(filter);
+                filter.connect(audioContext.destination);
+                
+                filter.type = 'highpass';
+                filter.frequency.setValueAtTime(1200, now);
+                filter.Q.setValueAtTime(2, now);
+                
+                gainMaster.gain.setValueAtTime(0, now);
+                gainMaster.gain.linearRampToValueAtTime(0.5, now + 0.1);
+                gainMaster.gain.linearRampToValueAtTime(0.45, now + duration * 0.7);
+                gainMaster.gain.exponentialRampToValueAtTime(0.05, now + duration);
+                
+                osc1.start(now);
+                osc2.start(now);
+                osc3.start(now);
+                
+                osc1.stop(now + duration);
+                osc2.stop(now + duration);
+                osc3.stop(now + duration);
+                
+            } catch(e) {
+                console.log('Errore riproduzione suono:', e);
+            }
+        }
+
+        // Funzione per mostrare countdown
+        async function showCountdown() {
+            for (let i = 5; i > 0; i--) {
+                const overlay = document.createElement('div');
+                overlay.className = 'countdown-overlay';
+                overlay.textContent = i;
+                document.body.appendChild(overlay);
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                overlay.remove();
+            }
+            
+            // Fischio ALLA FINE del countdown
+            playWhistle();
+        }
+
+        // Funzione per aggiornare display
+        function updateDisplay() {
+            const minutes = Math.floor(remainingTime / 60);
+            const seconds = remainingTime % 60;
+            
+            const timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            if (currentMode === 'digital') {
+                document.getElementById('digital-display').textContent = timeString;
+            } else {
+                updateAnalogClock();
+            }
+        }
+
+        // Funzione per aggiornare orologio analogico
+        function updateAnalogClock() {
+            const totalSeconds = maxTime;
+            const progress = (totalSeconds - remainingTime) / totalSeconds;
+            
+            // Calcola angoli
+            const totalRotation = progress * 360;
+            const hourRotation = (progress * 360) % 360;
+            const minuteRotation = (progress * 360) % 360;
+            const secondRotation = (remainingTime % 60) * 6;
+            
+            document.getElementById('hour-hand').style.transform = `rotate(${hourRotation / 12}deg)`;
+            document.getElementById('minute-hand').style.transform = `rotate(${minuteRotation}deg)`;
+            document.getElementById('second-hand').style.transform = `rotate(${secondRotation}deg)`;
+        }
+
+        // Funzione start
+        async function startTimer() {
+            if (isRunning) return;
+            
+            if (!isPaused) {
+                // Primo avvio - mostra countdown
+                await showCountdown();
+            }
+            
+            isRunning = true;
+            isPaused = false;
+            
+            // Gestisci pulsanti
+            const startBtn = document.querySelector('.start.control-button');
+            const pauseBtn = document.getElementById('pause-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            
+            startBtn.disabled = true;
+            startBtn.textContent = '▶ Start';
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = '⏸ Pausa';
+            pauseBtn.onclick = function() {
+                pauseTimer();
+            };
+            stopBtn.disabled = false;
+            
+            document.getElementById('digital-display').classList.add('running');
+            console.log('▶ Timer avviato');
+            
+            timerInterval = setInterval(() => {
+                remainingTime--;
+                updateDisplay();
+                
+                if (remainingTime <= 0) {
+                    stopTimer(true);
+                }
+            }, 1000);
+        }
+
+        // Funzione pause
+        function pauseTimer() {
+            if (!isRunning) return;
+            
+            isRunning = false;
+            isPaused = true;
+            clearInterval(timerInterval);
+            
+            // Cambia il pulsante Pausa
+            const pauseBtn = document.getElementById('pause-btn');
+            pauseBtn.textContent = '▶ Riprendi';
+            pauseBtn.onclick = function() {
+                startTimer();
+            };
+            
+            document.getElementById('digital-display').classList.remove('running');
+            console.log('⏸ Timer in pausa');
+        }
+
+        // Funzione stop
+        function stopTimer(finished = false) {
+            isRunning = false;
+            isPaused = false;
+            clearInterval(timerInterval);
+            
+            remainingTime = timeInSeconds;
+            updateDisplay();
+            
+            // Resetta i pulsanti
+            const startBtn = document.querySelector('.start.control-button');
+            const pauseBtn = document.getElementById('pause-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            
+            startBtn.disabled = false;
+            startBtn.textContent = '▶ Start';
+            startBtn.onclick = function() {
+                startTimer();
+            };
+            
+            pauseBtn.disabled = true;
+            pauseBtn.textContent = '⏸ Pausa';
+            pauseBtn.onclick = function() {
+                pauseTimer();
+            };
+            
+            stopBtn.disabled = true;
+            
+            document.getElementById('digital-display').classList.remove('running');
+            console.log('⏹ Timer stoppato');
+        }
+
+        // Funzione per preset
+        function setPreset(minutes) {
+            if (isRunning || isPaused) return;
+            
+            timeInSeconds = minutes * 60;
+            remainingTime = timeInSeconds;
+            maxTime = timeInSeconds;
+            
+            // Aggiorna pulsanti
+            document.querySelectorAll('.preset-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Pulisci input custom
+            document.getElementById('custom-time').value = '';
+            
+            updateDisplay();
+        }
+
+        // Funzione per tempo custom
+        document.getElementById('custom-time').addEventListener('change', function() {
+            if (isRunning || isPaused) return;
+            
+            const value = this.value.trim();
+            if (!value) return;
+            
+            const parts = value.split(':');
+            if (parts.length !== 2) {
+                alert('Formato non valido. Usa MM:SS');
+                return;
+            }
+            
+            const minutes = parseInt(parts[0]);
+            const seconds = parseInt(parts[1]);
+            
+            if (isNaN(minutes) || isNaN(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) {
+                alert('Tempo non valido');
+                this.value = '';
+                return;
+            }
+            
+            timeInSeconds = minutes * 60 + seconds;
+            remainingTime = timeInSeconds;
+            maxTime = timeInSeconds;
+            
+            // Rimuovi active dai preset
+            document.querySelectorAll('.preset-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            updateDisplay();
+        });
+
+        // Funzione per cambiare modalità
+        function setMode(mode) {
+            if (isRunning || isPaused) return;
+            
+            currentMode = mode;
+            
+            document.querySelectorAll('.mode-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            if (mode === 'digital') {
+                document.getElementById('digital-display').style.display = 'flex';
+                document.getElementById('analog-display').style.display = 'none';
+            } else {
+                document.getElementById('digital-display').style.display = 'none';
+                document.getElementById('analog-display').style.display = 'flex';
+            }
+            
+            updateDisplay();
+        }
+
+        // Inizializzazione
+        updateDisplay();
+        
+        // Carica il file fischio MP3
+        setWhistleFile('assets/whistle.mp3');
+        
+        // Setup event listeners per i pulsanti
+        document.querySelector('.start.control-button').onclick = function() {
+            startTimer();
+        };
+        
+        document.getElementById('pause-btn').onclick = function() {
+            pauseTimer();
+        };
+        
+        document.getElementById('stop-btn').onclick = function() {
+            stopTimer();
+        };
+    </script>
+</body>
+</html>
