@@ -574,8 +574,30 @@
                 remainingTime--;
                 updateDisplay();
                 
+                // Fischia quando raggiunge 0
                 if (remainingTime <= 0) {
-                    stopTimer(true);
+                    clearInterval(timerInterval);
+                    playWhistle();
+                    remainingTime = 0;
+                    updateDisplay();
+                    
+                    // Resetta lo stato dopo il fischio
+                    isRunning = false;
+                    isPaused = false;
+                    
+                    // Resetta i pulsanti
+                    const startBtn = document.querySelector('.start.control-button');
+                    const pauseBtn = document.getElementById('pause-btn');
+                    const stopBtn = document.getElementById('stop-btn');
+                    
+                    startBtn.disabled = false;
+                    startBtn.textContent = '▶ Start';
+                    pauseBtn.disabled = true;
+                    pauseBtn.textContent = '⏸ Pausa';
+                    stopBtn.disabled = true;
+                    
+                    document.getElementById('digital-display').classList.remove('running');
+                    console.log('⏹ Timer scaduto - Fischio!');
                 }
             }, 1000);
         }
