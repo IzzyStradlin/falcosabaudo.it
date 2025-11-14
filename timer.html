@@ -418,9 +418,28 @@
         function playWhistle() {
             if (whistleAudioFile) {
                 // Se hai fornito un file MP3
-                const audio = new Audio(whistleAudioFile);
-                audio.volume = 0.7;
-                audio.play().catch(e => console.log('Errore riproduzione audio:', e));
+                try {
+                    const audio = new Audio(whistleAudioFile);
+                    audio.volume = 1.0; // Volume al massimo
+                    audio.muted = false; // Assicura che non sia mutato
+                    
+                    // Prova a riprodurre con gestione errori
+                    const playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                        playPromise
+                            .then(() => {
+                                console.log('🔊 Fischio riprodotto');
+                            })
+                            .catch(error => {
+                                console.log('Errore riproduzione audio:', error);
+                                // Fallback al suono sintetico se l'MP3 fallisce
+                                playDefaultWhistle();
+                            });
+                    }
+                } catch(e) {
+                    console.log('Errore creazione audio:', e);
+                    playDefaultWhistle();
+                }
             } else {
                 // Fallback: suono sintetico
                 playDefaultWhistle();
@@ -739,6 +758,16 @@
         
         // Carica il file fischio MP3
         setWhistleFile('assets/whistle.mp3');
+        
+        // Inizializza audio context al primo click (necessario per mobile)
+        document.addEventListener('click', function initAudioContext() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('✓ Audio context attivato');
+                });
+            }
+            document.removeEventListener('click', initAudioContext);
+        }, { once: true });
         
         // Setup event listeners per i pulsanti
         document.querySelector('.start.control-button').onclick = function() {
