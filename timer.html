@@ -605,6 +605,11 @@
             isPaused = false;
             clearInterval(timerInterval);
             
+            // Se il timer è finito naturalmente, fischia
+            if (finished) {
+                playWhistle();
+            }
+            
             remainingTime = timeInSeconds;
             updateDisplay();
             
