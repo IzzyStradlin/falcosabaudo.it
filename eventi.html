@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Header di sicurezza -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://hvviecqurdbpxxfmaapb.supabase.co; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';" />
+    <title>Calendario Eventi - Falco Sabaudo</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .calendar-day {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 2px;
+            border-radius: 6px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .calendar-day:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+        .event-badge {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin: 1px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .modal-bg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.6);
+            z-index: 50;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: rgba(4,78,33,0.95);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            width: 90%;
+            color: white;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #fbbf24;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button:hover {
+            color: #fbbf24;
+        }
+        .tab-button.active {
+            color: #fbbf24;
+            border-bottom-color: #fbbf24;
+        }
+    </style>
+</head>
+<body class="bg-green-900 text-white font-sans min-h-screen flex flex-col items-center p-4">
+    <!-- Header -->
+    <header class="text-center py-8">
+        <img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4" />
+        <h1 class="text-3xl font-bold">Calendario Eventi</h1>
+        <nav class="mt-4">
+            <a href="index.html" class="text-yellow-400 underline text-lg">← Torna alla Home</a>
+        </nav>
+    </header>
+
+    <main class="px-6 max-w-6xl mx-auto">
+        <!-- Sezione Pubblica - Visualizzazione Eventi -->
+        <section id="public-section" class="my-12">
+            <h2 class="text-2xl font-semibold mb-6 text-yellow-400">Calendario Eventi</h2>
+            <p class="text-gray-300 mb-6">Visualizza gli eventi in programma</p>
+            
+            <!-- Calendario Pubblico -->
+            <div class="bg-green-800 p-6 rounded shadow mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <button id="prevMonth" class="bg-green-700 px-3 py-1 rounded hover:bg-green-600">&lt;</button>
+                    <h2 id="monthYear" class="text-xl font-semibold"></h2>
+                    <button id="nextMonth" class="bg-green-700 px-3 py-1 rounded hover:bg-green-600">&gt;</button>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-sm mb-2">
+                    <div>Dom</div>
+                    <div>Lun</div>
+                    <div>Mar</div>
+                    <div>Mer</div>
+                    <div>Gio</div>
+                    <div>Ven</div>
+                    <div>Sab</div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+            </div>
+
+            <!-- Prossimi Eventi -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 text-yellow-400">📅 Prossimi Eventi</h3>
+                    <div id="upcomingEvents" class="space-y-2"></div>
+                </div>
+
+                <!-- Eventi Passati -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 text-yellow-400">📆 Eventi Passati</h3>
+                    <div id="pastEvents" class="space-y-2"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sezione di login -->
+        <section id="auth-section" class="my-12 border-t border-yellow-400 pt-8">
+            <div class="bg-green-800 p-6 rounded shadow text-center">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-400">Accesso Admin</h2>
+                <div class="flex flex-col gap-3 max-w-md mx-auto">
+                    <input type="email" id="login-email" placeholder="Email" class="p-2 rounded text-black" />
+                    <input type="password" id="login-password" placeholder="Password" class="p-2 rounded text-black" />
+                    <button id="login-btn" class="bg-yellow-400 text-green-900 font-bold px-4 py-2 rounded hover:bg-yellow-300">
+                        🔐 Accedi
+                    </button>
+                    <p id="auth-message" class="text-sm mt-2"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sezione Admin (visibile solo se autenticato) -->
+        <section id="admin-section" class="my-12 border-t border-yellow-400 pt-8 hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-yellow-400">🛠️ Gestione Eventi</h2>
+                <button id="logout-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                    🚪 Esci
+                </button>
+            </div>
+
+            <!-- Tab di navigazione -->
+            <nav class="mb-8 flex gap-4 border-b border-yellow-400">
+                <button class="tab-button active text-gray-300 pb-2" onclick="showAdminTab('add-events')">
+                    ➕ Nuovo Evento
+                </button>
+                <button class="tab-button text-gray-300 pb-2" onclick="showAdminTab('manage-events')">
+                    📝 Gestisci Eventi
+                </button>
+            </nav>
+
+            <!-- Tab Nuovo Evento -->
+            <div id="add-events-tab" class="tab-content">
+                <div class="bg-green-800 p-6 rounded shadow max-w-2xl">
+                    <form id="eventForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Data Evento *</label>
+                                <input type="date" id="eventDate" class="w-full p-2 rounded text-black" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Tipo Evento *</label>
+                                <select id="eventTipo" class="w-full p-2 rounded text-black" required>
+                                    <option value="">Seleziona tipo</option>
+                                    <option value="campionato">Campionato</option>
+                                    <option value="coppa">Coppa</option>
+                                    <option value="atp">ATP</option>
+                                    <option value="gioco_libero">Gioco libero</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Titolo Evento *</label>
+                            <input type="text" id="eventTitle" class="w-full p-2 rounded text-black" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Descrizione</label>
+                            <textarea id="eventDesc" class="w-full p-2 rounded text-black" rows="3"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Link Forum (per iscrizioni)</label>
+                            <input type="url" id="eventLinkForum" class="w-full p-2 rounded text-black" placeholder="https://">
+                        </div>
+                        <button type="submit" class="bg-yellow-400 text-green-900 font-bold px-4 py-2 rounded hover:bg-yellow-300">
+                            ✅ Salva Evento
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tab Gestisci Eventi -->
+            <div id="manage-events-tab" class="tab-content hidden">
+                <div class="space-y-4" id="manage-events-list">
+                    <p class="text-gray-300">Caricamento eventi...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal per visualizzare evento -->
+    <div id="eventModal" class="modal-bg flex">
+        <div class="modal-content">
+            <span class="close-btn" id="closeModal">&times;</span>
+            <h3 id="modalTitle" class="text-xl font-bold mb-2"></h3>
+            <p id="modalDate" class="text-sm mb-2"></p>
+            <p id="modalDesc" class="mb-4"></p>
+            <p id="modalTipo" class="mb-2 font-semibold"></p>
+            <div id="modalLinks" class="flex space-x-4"></div>
+        </div>
+    </div>
+
+    <!-- Modal per modificare evento (admin) -->
+    <div id="editEventModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-green-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-4 text-yellow-400">Modifica Evento</h2>
+            <form id="editEventForm" class="space-y-4">
+                <input type="hidden" id="editEventId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Data Evento *</label>
+                        <input type="date" id="editEventDate" class="w-full p-2 rounded text-black" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tipo Evento *</label>
+                        <select id="editEventTipo" class="w-full p-2 rounded text-black" required>
+                            <option value="campionato">Campionato</option>
+                            <option value="coppa">Coppa</option>
+                            <option value="atp">ATP</option>
+                            <option value="gioco_libero">Gioco libero</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Titolo Evento *</label>
+                    <input type="text" id="editEventTitle" class="w-full p-2 rounded text-black" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Descrizione</label>
+                    <textarea id="editEventDesc" class="w-full p-2 rounded text-black" rows="3"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Link Forum</label>
+                    <input type="url" id="editEventLinkForum" class="w-full p-2 rounded text-black" placeholder="https://">
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="bg-yellow-400 text-green-900 font-bold px-4 py-2 rounded hover:bg-yellow-300">
+                        ✅ Salva Modifiche
+                    </button>
+                    <button type="button" id="edit-delete-event-btn" class="bg-red-600 text-white font-bold px-4 py-2 rounded hover:bg-red-700">
+                        🗑️ Elimina
+                    </button>
+                    <button type="button" onclick="closeEditModal()" class="bg-gray-600 text-white font-bold px-4 py-2 rounded hover:bg-gray-700">
+                        ❌ Annulla
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal di conferma -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-green-800 rounded-lg p-6 max-w-md">
+            <h2 class="text-2xl font-bold mb-4 text-yellow-400" id="confirmTitle">Conferma Azione</h2>
+            <p class="text-gray-200 mb-6" id="confirmMessage"></p>
+            <div class="flex gap-2 justify-end">
+                <button type="button" onclick="closeConfirmModal()" class="bg-gray-600 text-white font-bold px-4 py-2 rounded hover:bg-gray-700">
+                    ❌ Annulla
+                </button>
+                <button type="button" id="confirmBtn" class="bg-green-500 text-white font-bold px-4 py-2 rounded hover:bg-green-600">
+                    ✅ Conferma
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-6 text-sm text-green-300 mt-8">
+        © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
+    </footer>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        console.log('🚀 Eventi: Script iniziato');
+        
+        // Variabili globali
+        let supabaseClient = null;
+        let events = [];
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let logoutTimer = null;
+        const monthNames = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+
+        // Timer per logout automatico (30 minuti di inattività)
+        function resetLogoutTimer() {
+            if (logoutTimer) clearTimeout(logoutTimer);
+            logoutTimer = setTimeout(async () => {
+                await logout();
+            }, 30 * 60 * 1000);
+        }
+
+        // Attiva il timer su qualsiasi attività dell'utente
+        function setupActivityListeners() {
+            const events_list = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            events_list.forEach(event => {
+                document.addEventListener(event, resetLogoutTimer, true);
+            });
+        }
+
+        // Inizializzazione Supabase
+        async function initSupabase() {
+            console.log('Inizializzazione Supabase...');
+            
+            let attempts = 0;
+            while (!window.supabase && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            
+            if (!window.supabase) {
+                console.error('Supabase non caricato dopo 5 secondi');
+                return null;
+            }
+            
+            console.log('✅ Supabase libreria caricata');
+            
+            const url = 'https://hvviecqurdbpxxfmaapb.supabase.co';
+            const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dmllY3F1cmRicHh4Zm1hYXBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzMzMTEsImV4cCI6MjA2NzcwOTMxMX0.mGltlAbMzOSb6H2OVEDa4ukUpppEqqjtdKiSGKfjso4';
+            
+            supabaseClient = window.supabase.createClient(url, key);
+            console.log('✅ Client Supabase creato');
+            
+            return supabaseClient;
+        }
+
+        // Funzioni autenticazione
+        async function login(email, password) {
+            console.log('🔐 Login per:', email);
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+            if (error) throw new Error(error.message);
+            resetLogoutTimer();
+            setupActivityListeners();
+            return data;
+        }
+
+        async function logout() {
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) throw new Error(error.message);
+            updateAuthUI();
+        }
+
+        async function getCurrentUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            return user;
+        }
+
+        // Funzioni per gli eventi
+        async function fetchEvents() {
+            const { data, error } = await supabaseClient
+                .from('eventi')
+                .select('*')
+                .order('data_inizio', { ascending: true });
+            
+            if (error) {
+                console.error('Errore nel caricamento degli eventi:', error);
+                return [];
+            }
+            
+            events = data.map(e => ({
+                ...e,
+                data_inizio: new Date(e.data_inizio),
+                data_fine: e.data_fine ? new Date(e.data_fine) : null
+            }));
+            
+            renderCalendar();
+            renderUpcomingPast();
+            return events;
+        }
+
+        async function addEvent(titolo, tipo, data_inizio, descrizione, link_forum) {
+            const { data, error } = await supabaseClient
+                .from('eventi')
+                .insert([{ titolo, tipo, data_inizio, descrizione: descrizione || null, link_forum: link_forum || null }]);
+            
+            if (error) throw new Error(error.message);
+            console.log('✅ Evento aggiunto');
+            return data[0];
+        }
+
+        async function updateEvent(id, titolo, tipo, data_inizio, descrizione, link_forum) {
+            const { data, error } = await supabaseClient
+                .from('eventi')
+                .update({ titolo, tipo, data_inizio, descrizione: descrizione || null, link_forum: link_forum || null })
+                .eq('id', id)
+                .select();
+            
+            if (error) throw new Error(error.message);
+            console.log('✅ Evento aggiornato');
+            return data[0];
+        }
+
+        async function deleteEvent(id) {
+            const { error } = await supabaseClient
+                .from('eventi')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw new Error(error.message);
+            console.log('✅ Evento eliminato');
+        }
+
+        // UI Functions
+        function showError(message) {
+            const authMessage = document.getElementById('auth-message');
+            authMessage.textContent = message;
+            authMessage.className = 'text-sm mt-2 text-red-400';
+        }
+
+        function showSuccess(message) {
+            const authMessage = document.getElementById('auth-message');
+            authMessage.textContent = message;
+            authMessage.className = 'text-sm mt-2 text-green-300';
+        }
+
+        async function updateAuthUI() {
+            const user = await getCurrentUser();
+            const authSection = document.getElementById('auth-section');
+            const adminSection = document.getElementById('admin-section');
+            
+            if (user) {
+                authSection.classList.add('hidden');
+                adminSection.classList.remove('hidden');
+                console.log('✅ Admin visualizzato');
+                await loadManageEvents();
+            } else {
+                authSection.classList.remove('hidden');
+                adminSection.classList.add('hidden');
+                console.log('✅ Admin nascosto');
+            }
+        }
+
+        function showAdminTab(tabName) {
+            // Nascondi tutti i tab
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Rimuovi active da tutti i tab button
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active', 'border-yellow-400', 'font-semibold', 'text-yellow-400');
+                btn.classList.add('text-gray-300');
+            });
+            
+            // Mostra il tab selezionato
+            const tabEl = document.getElementById(tabName + '-tab');
+            if (tabEl) {
+                tabEl.classList.remove('hidden');
+            }
+            
+            // Attiva il bottone corrispondente
+            event.target.classList.add('active', 'border-yellow-400', 'font-semibold', 'text-yellow-400');
+            event.target.classList.remove('text-gray-300');
+        }
+
+        async function loadManageEvents() {
+            const container = document.getElementById('manage-events-list');
+            await fetchEvents();
+            
+            if (events.length === 0) {
+                container.innerHTML = '<p class="text-gray-300">Nessun evento trovato</p>';
+                return;
+            }
+            
+            container.innerHTML = events.map(event => {
+                const eventData = btoa(JSON.stringify({
+                    id: event.id,
+                    titolo: event.titolo,
+                    tipo: event.tipo,
+                    data_inizio: event.data_inizio.toISOString().split('T')[0],
+                    descrizione: event.descrizione || '',
+                    link_forum: event.link_forum || ''
+                }));
+                
+                return `
+                    <div class="bg-green-800 p-4 rounded flex justify-between items-center">
+                        <div>
+                            <div class="font-semibold">${event.titolo}</div>
+                            <div class="text-sm text-gray-300">${event.data_inizio.toLocaleDateString('it-IT')} - ${event.tipo}</div>
+                        </div>
+                        <button class="edit-event-btn bg-yellow-400 text-green-900 font-bold px-3 py-1 rounded hover:bg-yellow-300" data-event="${eventData}">
+                            ✏️ Modifica
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            
+            // Aggiungi event listeners ai bottoni di modifica
+            document.querySelectorAll('.edit-event-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const eventData = JSON.parse(atob(this.dataset.event));
+                    window.openEditModal(eventData);
+                });
+            });
+        }
+
+        function handleDeleteEvent() {
+            const id = document.getElementById('editEventId').value;
+            const titolo = document.getElementById('editEventTitle').value;
+            showConfirmModal(`Sei sicuro di voler eliminare l'evento "${titolo}"? Questa azione non può essere annullata.`, async () => {
+                try {
+                    await deleteEvent(id);
+                    showSuccess('✅ Evento eliminato con successo!');
+                    closeEditModal();
+                    await fetchEvents();
+                    await loadManageEvents();
+                } catch (error) {
+                    showError('Errore: ' + error.message);
+                }
+            });
+        }
+
+        window.openEditModal = function(eventData) {
+            console.log('Apertura modal modifica:', eventData);
+            document.getElementById('editEventId').value = eventData.id;
+            document.getElementById('editEventTitle').value = eventData.titolo;
+            document.getElementById('editEventTipo').value = eventData.tipo;
+            document.getElementById('editEventDate').value = eventData.data_inizio;
+            document.getElementById('editEventDesc').value = eventData.descrizione;
+            document.getElementById('editEventLinkForum').value = eventData.link_forum;
+            document.getElementById('editEventModal').classList.remove('hidden');
+            
+            // Aggiungi listener al bottone delete
+            setTimeout(() => {
+                const deleteBtn = document.getElementById('edit-delete-event-btn');
+                if (deleteBtn) {
+                    deleteBtn.onclick = null;
+                    deleteBtn.addEventListener('click', handleDeleteEvent);
+                }
+            }, 0);
+        }
+
+        function closeEditModal() {
+            document.getElementById('editEventModal').classList.add('hidden');
+            document.getElementById('editEventForm').reset();
+        }
+
+        function showConfirmModal(message, callback) {
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmBtn').onclick = () => {
+                closeConfirmModal();
+                callback();
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const lastDate = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
+            for (let d = 1; d <= lastDate; d++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day bg-green-800';
+                const dateText = document.createElement('div');
+                dateText.textContent = d;
+                dateText.className = 'text-xs';
+                dayCell.appendChild(dateText);
+
+                const dayEvents = events.filter(ev => 
+                    ev.data_inizio.getFullYear() === currentYear &&
+                    ev.data_inizio.getMonth() === currentMonth &&
+                    ev.data_inizio.getDate() === d
+                );
+
+                dayEvents.forEach(ev => {
+                    const badge = document.createElement('div');
+                    badge.className = 'event-badge';
+                    badge.textContent = '⚽';
+                    switch(ev.tipo){
+                        case 'campionato': badge.style.backgroundColor = '#16a34a'; break;
+                        case 'atp': badge.style.backgroundColor = '#3b82f6'; break;
+                        case 'coppa': badge.style.backgroundColor = '#fbbf24'; break;
+                        case 'gioco_libero': badge.style.backgroundColor = '#d1d5db'; break;
+                    }
+                    dayCell.appendChild(badge);
+                });
+
+                dayCell.addEventListener('click', () => openModal(dayEvents));
+                grid.appendChild(dayCell);
+            }
+
+            document.getElementById('monthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+        }
+
+        function renderUpcomingPast() {
+            const now = new Date();
+            const upcoming = events.filter(e => e.data_inizio >= now);
+            const past = events.filter(e => e.data_inizio < now).reverse();
+
+            const upEl = document.getElementById('upcomingEvents');
+            const pastEl = document.getElementById('pastEvents');
+            upEl.innerHTML = '';
+            pastEl.innerHTML = '';
+
+            if (upcoming.length === 0) upEl.innerHTML = '<p class="text-gray-300">Nessun evento in programma</p>';
+            if (past.length === 0) pastEl.innerHTML = '<p class="text-gray-300">Nessun evento passato</p>';
+
+            upcoming.forEach(e => upEl.appendChild(renderEventCard(e, false)));
+            past.forEach(e => pastEl.appendChild(renderEventCard(e, true)));
+        }
+
+        function renderEventCard(ev, isPast = false) {
+            const card = document.createElement('div');
+            card.className = 'bg-green-800 p-3 rounded flex justify-between items-center cursor-pointer hover:bg-green-700';
+            
+            const left = document.createElement('div');
+            let html = `<span class="font-semibold">${ev.titolo}</span> <span class="text-xs ml-1 text-gray-200">${ev.data_inizio.toLocaleDateString('it-IT')}</span>`;
+            
+            if(ev.link_forum) {
+                const linkLabel = isPast ? '💬 Discussione' : '📝 ISCRIZIONI';
+                html += `<br><a href="${ev.link_forum}" target="_blank" class="text-yellow-400 underline text-xs">${linkLabel}</a>`;
+            }
+            left.innerHTML = html;
+            
+            const right = document.createElement('div');
+            switch(ev.tipo){
+                case 'campionato': right.innerHTML='🏆'; break;
+                case 'atp': right.innerHTML='🎯'; break;
+                case 'coppa': right.innerHTML='🥇'; break;
+                case 'gioco_libero': right.innerHTML='⚽'; break;
+            }
+
+            card.appendChild(left);
+            card.appendChild(right);
+            card.addEventListener('click', () => openModal([ev]));
+            
+            return card;
+        }
+
+        function openModal(evList) {
+            if(evList.length === 0) return;
+            const modal = document.getElementById('eventModal');
+            const titleEl = document.getElementById('modalTitle');
+            const dateEl = document.getElementById('modalDate');
+            const descEl = document.getElementById('modalDesc');
+            const tipoEl = document.getElementById('modalTipo');
+            const linksEl = document.getElementById('modalLinks');
+
+            const ev = evList.length === 1 ? evList[0] : { titolo: `${evList.length} eventi`, descrizione:'', data_inizio: evList[0].data_inizio, tipo:''};
+
+            titleEl.textContent = ev.titolo;
+            dateEl.textContent = ev.data_inizio.toLocaleString('it-IT');
+            descEl.textContent = ev.descrizione || '';
+            tipoEl.textContent = ev.tipo ? 'Tipo: ' + ev.tipo : '';
+            linksEl.innerHTML = '';
+            if(ev.link_forum) linksEl.innerHTML += `<a href="${ev.link_forum}" target="_blank" class="text-yellow-400 underline">Forum</a>`;
+
+            modal.style.display = 'flex';
+        }
+
+        // Event Listeners
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('eventModal').style.display = 'none';
+        });
+
+        document.getElementById('eventModal').addEventListener('click', (e) => {
+            if(e.target.id==='eventModal') e.target.style.display='none';
+        });
+
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentMonth--;
+            if(currentMonth < 0){ currentMonth=11; currentYear--;}
+            renderCalendar();
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentMonth++;
+            if(currentMonth > 11){ currentMonth=0; currentYear++;}
+            renderCalendar();
+        });
+
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                await login(email, password);
+                showSuccess('Login effettuato con successo!');
+                await updateAuthUI();
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+            } catch (error) {
+                showError('Errore login: ' + error.message);
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                await logout();
+                showSuccess('Logout effettuato');
+            } catch (error) {
+                showError('Errore logout: ' + error.message);
+            }
+        });
+
+        document.getElementById('eventForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const titolo = document.getElementById('eventTitle').value;
+                const tipo = document.getElementById('eventTipo').value;
+                const data_inizio = document.getElementById('eventDate').value;
+                const descrizione = document.getElementById('eventDesc').value;
+                const link_forum = document.getElementById('eventLinkForum').value;
+
+                showConfirmModal(`Confermi di voler aggiungere l'evento "${titolo}"?`, async () => {
+                    await addEvent(titolo, tipo, data_inizio, descrizione, link_forum);
+                    showSuccess('✅ Evento salvato con successo!');
+                    document.getElementById('eventForm').reset();
+                    await fetchEvents();
+                    await loadManageEvents();
+                });
+            } catch (error) {
+                showError('Errore: ' + error.message);
+            }
+        });
+
+        document.getElementById('editEventForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('Submit form di modifica');
+            try {
+                const id = document.getElementById('editEventId').value;
+                const titolo = document.getElementById('editEventTitle').value;
+                const tipo = document.getElementById('editEventTipo').value;
+                const data_inizio = document.getElementById('editEventDate').value;
+                const descrizione = document.getElementById('editEventDesc').value;
+                const link_forum = document.getElementById('editEventLinkForum').value;
+
+                console.log('Dati da aggiornare:', { id, titolo, tipo, data_inizio, descrizione, link_forum });
+
+                showConfirmModal(`Confermi di voler modificare l'evento "${titolo}"?`, async () => {
+                    await updateEvent(id, titolo, tipo, data_inizio, descrizione, link_forum);
+                    showSuccess('✅ Evento aggiornato con successo!');
+                    closeEditModal();
+                    await fetchEvents();
+                    await loadManageEvents();
+                });
+            } catch (error) {
+                console.error('Errore modifica:', error);
+                showError('Errore: ' + error.message);
+            }
+        }, true);
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initSupabase();
+                await fetchEvents();
+                await updateAuthUI();
+            } catch (error) {
+                console.error('Errore inizializzazione:', error);
+                showError('Errore durante l\'inizializzazione');
+            }
+        });
+    </script>
+</body>
+</html>
