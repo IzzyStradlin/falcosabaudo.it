@@ -194,10 +194,11 @@
                             <label class="block text-sm font-medium mb-1">Link Forum (per iscrizioni)</label>
                             <input type="url" id="eventLinkForum" class="w-full p-2 rounded text-black" placeholder="https://">
                         </div>
-                        <button type="submit" class="bg-yellow-400 text-green-900 font-bold px-4 py-2 rounded hover:bg-yellow-300">
+                        <button type="submit" id="submitEventBtn" class="bg-yellow-400 text-green-900 font-bold px-4 py-2 rounded hover:bg-yellow-300">
                             ✅ Salva Evento
                         </button>
                     </form>
+                    <div id="eventFormMessage" class="mt-4 p-3 rounded text-center font-semibold hidden"></div>
                 </div>
             </div>
 
@@ -394,9 +395,11 @@
         async function addEvent(titolo, tipo, data_inizio, descrizione, link_forum) {
             const { data, error } = await supabaseClient
                 .from('eventi')
-                .insert([{ titolo, tipo, data_inizio, descrizione: descrizione || null, link_forum: link_forum || null }]);
+                .insert([{ titolo, tipo, data_inizio, descrizione: descrizione || null, link_forum: link_forum || null }])
+                .select();
             
             if (error) throw new Error(error.message);
+            if (!data || data.length === 0) throw new Error('Nessun dato restituito dal server');
             console.log('✅ Evento aggiunto');
             return data[0];
         }
@@ -616,6 +619,8 @@
 
         function renderUpcomingPast() {
             const now = new Date();
+            // Imposta l'ora a inizio giornata per confronto corretto (evento passato solo dal giorno successivo)
+            now.setHours(0, 0, 0, 0);
             const upcoming = events.filter(e => e.data_inizio >= now);
             const past = events.filter(e => e.data_inizio < now).reverse();
 
@@ -727,6 +732,10 @@
 
         document.getElementById('eventForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const submitBtn = document.getElementById('submitEventBtn');
+            const msgDiv = document.getElementById('eventFormMessage');
+            msgDiv.classList.add('hidden');
+            
             try {
                 const titolo = document.getElementById('eventTitle').value;
                 const tipo = document.getElementById('eventTipo').value;
@@ -735,14 +744,37 @@
                 const link_forum = document.getElementById('eventLinkForum').value;
 
                 showConfirmModal(`Confermi di voler aggiungere l'evento "${titolo}"?`, async () => {
-                    await addEvent(titolo, tipo, data_inizio, descrizione, link_forum);
-                    showSuccess('✅ Evento salvato con successo!');
-                    document.getElementById('eventForm').reset();
-                    await fetchEvents();
-                    await loadManageEvents();
+                    try {
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = '⏳ Salvataggio...';
+                        
+                        await addEvent(titolo, tipo, data_inizio, descrizione, link_forum);
+                        
+                        msgDiv.textContent = '✅ Evento inserito con successo!';
+                        msgDiv.className = 'mt-4 p-3 rounded text-center font-semibold bg-green-700 text-white';
+                        msgDiv.classList.remove('hidden');
+                        
+                        document.getElementById('eventForm').reset();
+                        await fetchEvents();
+                        await loadManageEvents();
+                        
+                        setTimeout(() => {
+                            msgDiv.classList.add('hidden');
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = '✅ Salva Evento';
+                        }, 3000);
+                    } catch (error) {
+                        msgDiv.textContent = '❌ Errore: ' + error.message;
+                        msgDiv.className = 'mt-4 p-3 rounded text-center font-semibold bg-red-700 text-white';
+                        msgDiv.classList.remove('hidden');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '✅ Salva Evento';
+                    }
                 });
             } catch (error) {
-                showError('Errore: ' + error.message);
+                msgDiv.textContent = '❌ Errore: ' + error.message;
+                msgDiv.className = 'mt-4 p-3 rounded text-center font-semibold bg-red-700 text-white';
+                msgDiv.classList.remove('hidden');
             }
         });
 
