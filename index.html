@@ -295,7 +295,7 @@
     </main>
 
     <footer class="text-center py-6 text-sm text-green-300">
-        © 2025 OSC Falco Sabaudo. Tutti i diritti riservati.
+        © 2026 OSC Falco Sabaudo. Tutti i diritti riservati.
     </footer>
 
     <script src="config.js"></script>
@@ -319,104 +319,23 @@
             localStorage.setItem('youtubeBoxMinimized', isNowMinimized);
         });
 
-        // Funzione per recuperare gli ultimi video da YouTube
-        async function fetchLatestVideos() {
-            try {
-                // Usa la chiave dal file config per maggiore sicurezza
-                const API_KEY = config.YOUTUBE_API_KEY;
-                
-                // Prima otteniamo l'ID del canale dall'handle
-                const channelHandle = '@FALCOSABAUDOTV-v5y';
-                const channelInfoResponse = await fetch(
-                    `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&q=${channelHandle}&type=channel&part=snippet`
-                );
-
-                if (!channelInfoResponse.ok) {
-                    throw new Error('Errore nel recupero delle informazioni del canale');
-                }
-
-                const channelInfo = await channelInfoResponse.json();
-                const CHANNEL_ID = channelInfo.items[0].snippet.channelId;
-
-                // Ora otteniamo gli ultimi video dal canale
-                const channelResponse = await fetch(
-                    `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=date&maxResults=3`
-                );
-
-                if (!channelResponse.ok) {
-                    throw new Error('Errore nel recupero dei video dal canale');
-                }
-
-                const channelData = await channelResponse.json();
-                
-                // Otteniamo i dettagli completi per ogni video
-                const videoIds = channelData.items.map(item => item.id.videoId).join(',');
-                const videosResponse = await fetch(
-                    `https://www.googleapis.com/youtube/v3/videos?key=${API_KEY}&id=${videoIds}&part=snippet,statistics`
-                );
-
-                if (!videosResponse.ok) {
-                    throw new Error('Errore nel recupero dei dettagli dei video');
-                }
-
-                const videosData = await videosResponse.json();
-
-                // Formatta i video con tutti i dati necessari
-                const entries = videosData.items.map(video => ({
-                    title: video.snippet.title,
-                    url: `https://www.youtube.com/watch?v=${video.id}`,
-                    videoId: video.id,
-                    thumbnail: video.snippet.thumbnails.medium.url,
-                    views: `${parseInt(video.statistics.viewCount).toLocaleString('it-IT')} visualizzazioni`,
-                    date: new Date(video.snippet.publishedAt)
-                }));
-
-                return entries;
-                
-            } catch (error) {
-                console.error('Errore nel recupero dei video:', error);
-                return [];
-            }
-        }
-
         // Funzione per aggiornare il contenuto del box YouTube
         async function updateYoutubeContent() {
             const youtubeFeed = document.getElementById('youtube-feed');
-            
-            try {
-                const videos = await fetchLatestVideos();
-                youtubeFeed.innerHTML = videos.map(video => `
-                    <div class="video-item p-2 rounded">
-                        <a href="${video.url}" class="block" target="_blank" rel="noopener">
-                            <div class="flex space-x-2">
-                                <div class="flex-shrink-0">
-                                    <img src="${video.thumbnail}" alt="${video.title}" 
-                                         class="w-20 h-14 object-cover rounded" 
-                                         onerror="this.src='https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg'">
-                                </div>
-                                <div class="flex-grow min-w-0">
-                                    <h4 class="video-title text-sm font-medium text-red-500 hover:text-red-400">
-                                        ${video.title}
-                                    </h4>
-                                    <div class="flex items-center justify-between mt-1">
-                                        <span class="text-xs text-green-200">
-                                            ${video.views}
-                                        </span>
-                                        <span class="text-xs text-green-200">
-                                            ${formatDate(video.date)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                `).join('');
 
+            try {
+                const response = await fetch('youtube-preview.php');
+                if (!response.ok) {
+                    throw new Error('Errore nella risposta del server YouTube');
+                }
+
+                const html = await response.text();
+                youtubeFeed.innerHTML = html;
             } catch (error) {
                 console.error('Errore nel caricamento dei video:', error);
                 youtubeFeed.innerHTML = `
                     <div class="text-center text-red-300 py-2">
-                        <p class="text-sm">Impossibile caricare i video</p>
+                        <p class="text-sm">Impossibile caricare la preview YouTube. Vai al canale.</p>
                     </div>
                 `;
             }
@@ -468,85 +387,23 @@
             }
         }
 
-        // Funzione per recuperare gli ultimi topic dal forum
-        async function fetchLatestTopics() {
-            try {
-                // Utilizziamo allorigins.win come proxy per evitare problemi CORS
-                const rssUrl = 'https://falcosabaudo.forumfree.it/rss.php?c=777270';
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
-                
-                const response = await fetch(proxyUrl);
-                if (!response.ok) {
-                    throw new Error('Errore nel caricamento del feed RSS');
-                }
-                
-                const xmlText = await response.text();
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-                
-                // Estraiamo gli ultimi topic dal feed RSS
-                const topics = Array.from(xmlDoc.querySelectorAll('item'))
-                    .slice(0, 3)
-                    .map(item => {
-                        const title = item.querySelector('title')?.textContent || 'Titolo non disponibile';
-                        const link = item.querySelector('link')?.textContent || 'https://falcosabaudo.forumfree.it/';
-                        const pubDate = item.querySelector('pubDate')?.textContent;
-                        const creator = item.querySelector('dc\\:creator')?.textContent || 'Autore sconosciuto';
-                        
-                        return {
-                            title: title,
-                            url: link,
-                            lastUpdate: pubDate ? new Date(pubDate) : new Date(),
-                            author: creator,
-                            description: ''
-                        };
-                    });
-                
-                return topics;
-            } catch (error) {
-                console.error('Errore nel recupero del feed:', error);
-                // Fallback ai dati statici in caso di errore
-                return [
-                    {
-                        title: 'Visita il Forum',
-                        url: 'https://falcosabaudo.forumfree.it/',
-                        lastUpdate: new Date(),
-                        author: 'Falco Sabaudo',
-                        description: 'Clicca per vedere tutte le discussioni'
-                    }
-                ];
-            }
-        }
-
         // Funzione per aggiornare il contenuto del box forum
         async function updateForumContent() {
             const forumFeed = document.getElementById('forum-feed-mini');
-            
-            try {
-                const topics = await fetchLatestTopics();
-                forumFeed.innerHTML = topics.map(topic => `
-                    <div class="forum-item p-2 rounded">
-                        <a href="${topic.url}" class="block" target="_blank" rel="noopener">
-                            <h4 class="forum-title text-sm font-medium text-yellow-400 hover:text-yellow-300">
-                                ${topic.title}
-                            </h4>
-                            <div class="flex items-center justify-between mt-1">
-                                <span class="text-xs text-green-200">
-                                    ${topic.author}
-                                </span>
-                                <span class="text-xs text-green-200">
-                                    ${formatDate(topic.lastUpdate)}
-                                </span>
-                            </div>
-                        </a>
-                    </div>
-                `).join('');
 
+            try {
+                const response = await fetch('forum-preview.php');
+                if (!response.ok) {
+                    throw new Error('Errore nella risposta del server forum');
+                }
+
+                const html = await response.text();
+                forumFeed.innerHTML = html;
             } catch (error) {
                 console.error('Errore nel caricamento dei topic:', error);
                 forumFeed.innerHTML = `
                     <div class="text-center text-red-300 py-2">
-                        <p class="text-sm">Impossibile caricare le discussioni</p>
+                        <p class="text-sm">Impossibile caricare la preview del forum. Vai al forum.</p>
                     </div>
                 `;
             }
