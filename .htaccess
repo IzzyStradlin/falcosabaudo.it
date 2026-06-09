@@ -21,7 +21,7 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
 # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 
 # Content Security Policy
-Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://www.googleapis.com https://api.allorigins.win; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: http:; connect-src 'self' https://www.googleapis.com https://api.allorigins.win https://falcosabaudo.forumfree.it https://hvviecqurdbpxxfmaapb.supabase.co; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';"
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://www.googleapis.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: http:; connect-src 'self' https://www.googleapis.com https://falcosabaudo.forumfree.it https://hvviecqurdbpxxfmaapb.supabase.co; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';"
 
 # ==========================================
 # PROTEZIONE FILE SENSIBILI
