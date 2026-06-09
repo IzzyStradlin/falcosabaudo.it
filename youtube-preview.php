@@ -1,5 +1,5 @@
 <?php
-function fetchUrl(string $url): ?string {
+function fetchUrl($url) {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
@@ -19,7 +19,7 @@ function fetchUrl(string $url): ?string {
     return $result;
 }
 
-function renderError(string $message): void {
+function renderError($message) {
     echo '<div class="text-center text-red-300 py-2">';
     echo '<p class="text-sm">' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>';
     echo '</div>';
@@ -49,7 +49,7 @@ if ($xml === false) {
     renderError('Feed YouTube non valido.');
 }
 
-$items = [];
+$items = array();
 $namespace = 'http://www.youtube.com/xml/schemas/2015';
 $count = 0;
 foreach ($xml->entry as $entry) {
