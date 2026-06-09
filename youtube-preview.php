@@ -45,10 +45,6 @@ if ($rssContent === null) {
 
 libxml_use_internal_errors(true);
 $xml = simplexml_load_string($rssContent);
-if ($xml === false) {
-    renderError('Feed YouTube non valido.');
-}
-
 $items = array();
 $namespace = 'http://www.youtube.com/xml/schemas/2015';
 $count = 0;
@@ -60,7 +56,7 @@ foreach ($xml->entry as $entry) {
     $title = (string)$entry->title;
     $link = (string)$entry->link['href'];
     $published = date('d/m/Y H:i', strtotime((string)$entry->published));
-    $items[] = compact('videoId', 'title', 'link', 'published');
+    $items[] = array('videoId' => $videoId, 'title' => $title, 'link' => $link, 'published' => $published);
 }
 
 if (empty($items)) {
@@ -68,12 +64,13 @@ if (empty($items)) {
 }
 
 foreach ($items as $video) {
-    $videoTitle     = htmlspecialchars($video['title'], ENT_QUOTES, 'UTF-8');
-    $videoUrl       = htmlspecialchars($video['link'], ENT_QUOTES, 'UTF-8');
-    $videoId        = htmlspecialchars($video['videoId'], ENT_QUOTES, 'UTF-8');
-    $published      = htmlspecialchars($video['published'], ENT_QUOTES, 'UTF-8');
-    $thumbnailUrl   = "https://i.ytimg.com/vi/{$videoId}/mqdefault.jpg";
+    $videoTitle   = htmlspecialchars($video['title'], ENT_QUOTES, 'UTF-8');
+    $videoUrl     = htmlspecialchars($video['link'], ENT_QUOTES, 'UTF-8');
+    $videoId      = htmlspecialchars($video['videoId'], ENT_QUOTES, 'UTF-8');
+    $published    = htmlspecialchars($video['published'], ENT_QUOTES, 'UTF-8');
+    $thumbnailUrl = 'https://i.ytimg.com/vi/' . $videoId . '/mqdefault.jpg';
 
+    // Stampa HTML pulito per ciascun video
     echo '<div class="video-item p-2 rounded">';
     echo '<a href="' . $videoUrl . '" class="block" target="_blank" rel="noopener">';
     echo '<div class="flex space-x-2">';
@@ -91,3 +88,8 @@ foreach ($items as $video) {
     echo '</a>';
     echo '</div>';
 }
+
+// Link al canale
+echo '<div class="mt-3 pt-3 border-t border-green-600">';
+echo '<a href="http://www.youtube.com/@FALCOSABAUDOTV-v5y" target="_blank" rel="noopener" class="block text-center text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Vai al Canale YouTube →</a>';
+echo '</div>';
