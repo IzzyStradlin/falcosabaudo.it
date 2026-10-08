@@ -856,7 +856,26 @@
             }
         }
 
+        // GD (allenatore) per squadra della competizione corrente, mostrato come tooltip
+        let teamGdMap = {};
+
+        async function loadTeamGd(competitionId) {
+            const { data, error } = await supabaseClient
+                .from('team_managers')
+                .select('team_id, gd_name')
+                .eq('competition_id', competitionId);
+            teamGdMap = error ? {} : Object.fromEntries(data.map(r => [r.team_id, r.gd_name]));
+        }
+
+        function gdAttr(teamId) {
+            const gd = teamGdMap[teamId];
+            if (!gd) return '';
+            const safe = String(gd).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            return ` title="GD: ${safe}"`;
+        }
+
         async function getMatchdaysByCompetition(competitionId) {
+            await loadTeamGd(competitionId);
             try {
                 const { data, error } = await supabaseClient
                     .from('matchdays')
@@ -2194,7 +2213,7 @@
                                         return `
                                             <tr class="border-b border-green-700 hover:bg-green-700 ${positionClass}">
                                                 <td class="py-2 px-3 font-bold">${index + 1}</td>
-                                                <td class="py-2 px-3 font-semibold">${team.teams.name}</td>
+                                                <td class="py-2 px-3 font-semibold"${gdAttr(team.team_id)}>${team.teams.name}</td>
                                                 <td class="text-center py-2 px-3">${team.games_played}</td>
                                                 <td class="text-center py-2 px-3">${team.wins}</td>
                                                 <td class="text-center py-2 px-3">${team.draws}</td>
@@ -2357,7 +2376,7 @@
                                             return `
                                                 <tr class="border-b border-green-700 hover:bg-green-700 ${positionClass}">
                                                     <td class="py-1 px-2 font-bold">${index + 1}</td>
-                                                    <td class="py-1 px-2 font-semibold">${team.teams.name}</td>
+                                                    <td class="py-1 px-2 font-semibold"${gdAttr(team.team_id)}>${team.teams.name}</td>
                                                     <td class="text-center py-1 px-2">${team.games_played}</td>
                                                     <td class="text-center py-1 px-2">${team.wins}</td>
                                                     <td class="text-center py-1 px-2">${team.draws}</td>
@@ -2436,9 +2455,9 @@
                                         ${matchday.matches.map(match => `
                                             <div class="flex items-center justify-between p-2 bg-green-800 rounded">
                                                 <div class="flex items-center space-x-3">
-                                                    <span class="font-medium">${match.home_team.name}</span>
+                                                    <span class="font-medium"${gdAttr(match.home_team.id)}>${match.home_team.name}</span>
                                                     <span class="text-yellow-400 text-sm">vs</span>
-                                                    <span class="font-medium">${match.away_team.name}</span>
+                                                    <span class="font-medium"${gdAttr(match.away_team.id)}>${match.away_team.name}</span>
                                                 </div>
                                                 <span class="text-sm text-gray-300">Da giocare</span>
                                             </div>
@@ -2468,9 +2487,9 @@
                                         ${matchday.matches.map(match => `
                                             <div class="flex items-center justify-between p-2 bg-green-800 rounded">
                                                 <div class="flex items-center space-x-3">
-                                                    <span class="font-medium">${match.home_team.name}</span>
+                                                    <span class="font-medium"${gdAttr(match.home_team.id)}>${match.home_team.name}</span>
                                                     <span class="text-yellow-400 text-sm">vs</span>
-                                                    <span class="font-medium">${match.away_team.name}</span>
+                                                    <span class="font-medium"${gdAttr(match.away_team.id)}>${match.away_team.name}</span>
                                                 </div>
                                                 <span class="text-lg font-bold text-green-300">
                                                     ${match.home_score || 0} - ${match.away_score || 0}
@@ -2691,9 +2710,9 @@
             return `
                 <div class="flex items-center justify-between p-3 bg-green-700 rounded">
                     <div class="flex items-center space-x-4">
-                        <span class="font-semibold">${match.home_team.name}</span>
+                        <span class="font-semibold"${gdAttr(match.home_team.id)}>${match.home_team.name}</span>
                         <span class="text-yellow-400">VS</span>
-                        <span class="font-semibold">${match.away_team.name}</span>
+                        <span class="font-semibold"${gdAttr(match.away_team.id)}>${match.away_team.name}</span>
                     </div>
                     
                     <div class="flex items-center space-x-2">
@@ -2759,7 +2778,7 @@
                                 ${standings.map((team, index) => `
                                     <tr class="border-b border-green-700 hover:bg-green-700">
                                         <td class="py-2 px-3 font-bold">${index + 1}</td>
-                                        <td class="py-2 px-3 font-semibold">${team.teams.name}</td>
+                                        <td class="py-2 px-3 font-semibold"${gdAttr(team.team_id)}>${team.teams.name}</td>
                                         <td class="text-center py-2 px-3">${team.games_played}</td>
                                         <td class="text-center py-2 px-3">${team.wins}</td>
                                         <td class="text-center py-2 px-3">${team.draws}</td>
