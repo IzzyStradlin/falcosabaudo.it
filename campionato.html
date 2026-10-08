@@ -148,6 +148,7 @@
                                 <label class="block text-sm mb-1">Tipo</label>
                             <select id="competition-type" class="p-2 rounded bg-green-900 text-white border border-yellow-400">
                                 <option value="all-against-all">Campionato all'italiana</option>
+                                <option value="all-against-all-single">Campionato all'italiana (solo andata)</option>
                                 <option value="elimination">Eliminazione diretta</option>
                                 <option value="cup">Coppa (Gironi + Finale)</option>
                             </select>
@@ -348,6 +349,7 @@
                             <select id="edit-competition-type" 
                                     class="w-full px-3 py-2 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="all-against-all">Campionato all'italiana</option>
+                                <option value="all-against-all-single">Campionato all'italiana (solo andata)</option>
                                 <option value="elimination">Eliminazione diretta</option>
                                 <option value="cup">Coppa (Gironi + Finale)</option>
                             </select>
@@ -1010,7 +1012,7 @@
         }
 
         // Funzione per generare calendario all'italiana (andata e ritorno)
-        function generateRoundRobinSchedule(teams) {
+        function generateRoundRobinSchedule(teams, withReturn = true) {
             const schedule = [];
             const teamsCopy = [...teams];
             
@@ -1022,42 +1024,34 @@
             const numTeams = teamsCopy.length;
             const numRounds = numTeams - 1;
             
-            // ANDATA
+            // ANDATA: costruzione con il minimo teorico di rotture casa/trasferta (n-2 in totale)
+            const fixed = teamsCopy[numTeams - 1];
             for (let round = 0; round < numRounds; round++) {
                 const roundMatches = [];
                 
-                for (let i = 0; i < numTeams / 2; i++) {
-                    let home = teamsCopy[i];
-                    let away = teamsCopy[numTeams - 1 - i];
-                    
-                    // Schema di Berger: il primo incontro alterna a ogni giornata, gli altri hanno campo fisso per posizione
-                    const swap = i === 0 ? round % 2 === 1 : i % 2 === 1;
-                    if (swap) [home, away] = [away, home];
-                    
-                    // Salta le partite con "riposo"
-                    if (home.id !== 'bye' && away.id !== 'bye') {
-                        roundMatches.push({
-                            home_team: home,
-                            away_team: away,
-                            round_type: 'andata'
-                        });
-                    }
+                for (let i = 0; i < numRounds; i++) {
+                    const j = (((round - i) % numRounds) + numRounds) % numRounds;
+                    if (i >= j) continue;
+                    const iHome = ((((i - j) % numRounds) + numRounds) % numRounds) % 2 === 1;
+                    const [home, away] = iHome ? [teamsCopy[i], teamsCopy[j]] : [teamsCopy[j], teamsCopy[i]];
+                    roundMatches.push({ home_team: home, away_team: away, round_type: 'andata' });
                 }
+                
+                // La squadra fissa incontra quella con 2i = round (mod n-1)
+                const partner = teamsCopy[(round * ((numRounds + 1) / 2)) % numRounds];
+                roundMatches.push(round % 2 === 0
+                    ? { home_team: fixed, away_team: partner, round_type: 'andata' }
+                    : { home_team: partner, away_team: fixed, round_type: 'andata' });
                 
                 schedule.push({
                     round: round + 1,
-                    matches: roundMatches,
+                    matches: roundMatches.filter(m => m.home_team.id !== 'bye' && m.away_team.id !== 'bye'),
                     phase: 'Andata'
                 });
-                
-                // Ruota le squadre (tranne la prima)
-                const temp = teamsCopy[1];
-                for (let i = 1; i < numTeams - 1; i++) {
-                    teamsCopy[i] = teamsCopy[i + 1];
-                }
-                teamsCopy[numTeams - 1] = temp;
             }
             
+            if (!withReturn) return schedule;
+
             // RITORNO: stesse giornate dell'andata con casa/trasferta invertite
             const andata = [...schedule];
             andata.forEach((day, idx) => {
@@ -2102,6 +2096,7 @@
         function getTypeLabel(type) {
             const labels = {
                 'all-against-all': 'Campionato all\'italiana',
+                'all-against-all-single': 'Campionato all\'italiana (solo andata)',
                 'elimination': 'Eliminazione diretta',
                 'cup': 'Coppa (Gironi + Finale)'
             };
@@ -2852,16 +2847,30 @@
                 } else {
                     console.log('🏆 Generazione calendario CAMPIONATO ALL\'ITALIANA');
                     // Campionato all'italiana
-                    const schedule = generateRoundRobinSchedule(teams);
+                    const schedule = generateRoundRobinSchedule(teams, competition.type !== 'all-against-all-single');
                     
-                    // Crea le giornate e partite nel database
-                    for (const round of schedule) {
-                        // Crea la giornata
-                        const matchday = await createMatchday(competitionId, round.round, null);
-                        
-                        // Crea le partite
-                        for (const match of round.matches) {
-                            await createMatch(matchday.id, match.home_team.id, match.away_team.id);
+                    // Inserimenti in blocco: evita calendari incompleti se una singola richiesta fallisce
+                    const { data: matchdays, error: mdError } = await supabaseClient
+                        .from('matchdays')
+                        .insert(schedule.map(r => ({ competition_id: competitionId, round_number: r.round })))
+                        .select();
+                    if (mdError) throw new Error(mdError.message);
+
+                    const idByRound = new Map(matchdays.map(md => [md.round_number, md.id]));
+                    const matchRows = schedule.flatMap(r => r.matches.map(m => ({
+                        matchday_id: idByRound.get(r.round),
+                        home_team_id: m.home_team.id,
+                        away_team_id: m.away_team.id,
+                        status: 'scheduled'
+                    })));
+
+                    for (let i = 0; i < matchRows.length; i += 200) {
+                        const { error: mError } = await supabaseClient
+                            .from('matches')
+                            .insert(matchRows.slice(i, i + 200));
+                        if (mError) {
+                            await clearExistingCalendar(competitionId);
+                            throw new Error(mError.message);
                         }
                     }
                 }
