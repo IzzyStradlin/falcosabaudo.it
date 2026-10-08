@@ -752,7 +752,54 @@
             return data && data.length > 0;
         }
 
+        // Aggiunge statistiche casa/trasferta e media inglese calcolandole dalle partite completate
         async function getStandings(competitionId) {
+            const standings = await fetchStandingsRows(competitionId);
+            const matchdays = await getMatchdaysByCompetition(competitionId);
+            const extra = {};
+            const get = id => extra[id] || (extra[id] = { home_played: 0, away_played: 0, home_gf: 0, home_ga: 0, away_gf: 0, away_ga: 0 });
+
+            for (const md of matchdays) {
+                for (const m of (md.matches || [])) {
+                    if (m.status !== 'completed' || !m.home_team || !m.away_team) continue;
+                    const hs = m.home_score || 0, as = m.away_score || 0;
+                    const h = get(m.home_team.id), a = get(m.away_team.id);
+                    h.home_played++; h.home_gf += hs; h.home_ga += as;
+                    a.away_played++; a.away_gf += as; a.away_ga += hs;
+                }
+            }
+
+            for (const row of standings) {
+                const e = get(row.team_id);
+                Object.assign(row, e);
+                row.goal_difference = row.goals_for - row.goals_against;
+                // Media inglese: punti - punti attesi (2 per gara in casa, 1 per gara in trasferta)
+                row.english_mean = row.points - (e.home_played * 2 + e.away_played * 1);
+            }
+            return standings;
+        }
+
+        function fmtSigned(n) {
+            return (n > 0 ? '+' : '') + n;
+        }
+
+        const standingsExtraHeaders = `
+            <th class="text-center py-2 px-3" title="Gol fatti in casa">GF C</th>
+            <th class="text-center py-2 px-3" title="Gol subiti in casa">GS C</th>
+            <th class="text-center py-2 px-3" title="Gol fatti fuori casa">GF T</th>
+            <th class="text-center py-2 px-3" title="Gol subiti fuori casa">GS T</th>
+            <th class="text-center py-2 px-3" title="Media inglese">ME</th>`;
+
+        function standingsExtraCells(team) {
+            return `
+                <td class="text-center py-2 px-3">${team.home_gf ?? 0}</td>
+                <td class="text-center py-2 px-3">${team.home_ga ?? 0}</td>
+                <td class="text-center py-2 px-3">${team.away_gf ?? 0}</td>
+                <td class="text-center py-2 px-3">${team.away_ga ?? 0}</td>
+                <td class="text-center py-2 px-3">${fmtSigned(team.english_mean ?? 0)}</td>`;
+        }
+
+        async function fetchStandingsRows(competitionId) {
             // Versione temporanea che calcola la classifica al volo
             // Finché non si eseguono le migrazioni del database
             try {
@@ -980,8 +1027,12 @@
                 const roundMatches = [];
                 
                 for (let i = 0; i < numTeams / 2; i++) {
-                    const home = teamsCopy[i];
-                    const away = teamsCopy[numTeams - 1 - i];
+                    let home = teamsCopy[i];
+                    let away = teamsCopy[numTeams - 1 - i];
+                    
+                    // Schema di Berger: il primo incontro alterna a ogni giornata, gli altri hanno campo fisso per posizione
+                    const swap = i === 0 ? round % 2 === 1 : i % 2 === 1;
+                    if (swap) [home, away] = [away, home];
                     
                     // Salta le partite con "riposo"
                     if (home.id !== 'bye' && away.id !== 'bye') {
@@ -1007,37 +1058,19 @@
                 teamsCopy[numTeams - 1] = temp;
             }
             
-            // RITORNO (inverte casa/trasferta)
-            for (let round = 0; round < numRounds; round++) {
-                const roundMatches = [];
-                
-                for (let i = 0; i < numTeams / 2; i++) {
-                    const away = teamsCopy[i];  // Inverte ruoli
-                    const home = teamsCopy[numTeams - 1 - i];  // Inverte ruoli
-                    
-                    // Salta le partite con "riposo"
-                    if (home.id !== 'bye' && away.id !== 'bye') {
-                        roundMatches.push({
-                            home_team: home,
-                            away_team: away,
-                            round_type: 'ritorno'
-                        });
-                    }
-                }
-                
+            // RITORNO: stesse giornate dell'andata con casa/trasferta invertite
+            const andata = [...schedule];
+            andata.forEach((day, idx) => {
                 schedule.push({
-                    round: numRounds + round + 1,
-                    matches: roundMatches,
-                    phase: 'Ritorno'
+                    round: numRounds + idx + 1,
+                    phase: 'Ritorno',
+                    matches: day.matches.map(m => ({
+                        home_team: m.away_team,
+                        away_team: m.home_team,
+                        round_type: 'ritorno'
+                    }))
                 });
-                
-                // Ruota le squadre (tranne la prima)
-                const temp = teamsCopy[1];
-                for (let i = 1; i < numTeams - 1; i++) {
-                    teamsCopy[i] = teamsCopy[i + 1];
-                }
-                teamsCopy[numTeams - 1] = temp;
-            }
+            });
             
             return schedule;
         }
@@ -2153,6 +2186,7 @@
                                         <th class="text-center py-2 px-3">GS</th>
                                         <th class="text-center py-2 px-3">DR</th>
                                         <th class="text-center py-2 px-3 font-bold">Pt</th>
+                                        ${standingsExtraHeaders}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2174,6 +2208,7 @@
                                                 <td class="text-center py-2 px-3">${team.goals_against}</td>
                                                 <td class="text-center py-2 px-3">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
                                                 <td class="text-center py-2 px-3 font-bold text-yellow-400">${team.points}</td>
+                                                ${standingsExtraCells(team)}
                                             </tr>
                                         `;
                                     }).join('')}
@@ -2722,6 +2757,7 @@
                                     <th class="text-center py-2 px-3">GS</th>
                                     <th class="text-center py-2 px-3">DR</th>
                                     <th class="text-center py-2 px-3 font-bold">Pt</th>
+                                    ${standingsExtraHeaders}
                                 </tr>
                             </thead>
                             <tbody>
@@ -2737,6 +2773,7 @@
                                         <td class="text-center py-2 px-3">${team.goals_against}</td>
                                         <td class="text-center py-2 px-3">${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}</td>
                                         <td class="text-center py-2 px-3 font-bold text-yellow-400">${team.points}</td>
+                                        ${standingsExtraCells(team)}
                                     </tr>
                                 `).join('')}
                             </tbody>
