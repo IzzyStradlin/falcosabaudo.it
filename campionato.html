@@ -2420,51 +2420,69 @@
                     return;
                 }
 
-                // Separare giornate completate e future
+                // Separare giornate completate, in corso e future
                 const completedMatchdays = [];
+                const inProgressMatchdays = [];
                 const upcomingMatchdays = [];
                 
                 matchdays.forEach(matchday => {
                     const hasCompletedMatches = matchday.matches.some(match => match.status === 'completed');
-                    const hasScheduledMatches = matchday.matches.some(match => match.status === 'scheduled');
+                    const isCompleted = matchday.matches.length > 0 &&
+                        matchday.matches.every(match => match.status === 'completed');
                     
-                    if (hasCompletedMatches && !hasScheduledMatches) {
+                    if (isCompleted) {
                         completedMatchdays.push(matchday);
+                    } else if (hasCompletedMatches) {
+                        inProgressMatchdays.push(matchday);
                     } else {
                         upcomingMatchdays.push(matchday);
                     }
                 });
 
                 let calendarHTML = '';
+                const renderMatchday = matchday => `
+                    <div class="bg-green-700 p-4 rounded">
+                        <h5 class="font-semibold mb-3 text-yellow-300">
+                            ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description)
+                                ? matchday.description
+                                : `Giornata ${matchday.round_number}${matchday.description ? ` - ${matchday.description}` : ''}`
+                            }
+                            ${matchday.date ? `- ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
+                        </h5>
+                        <div class="space-y-2">
+                            ${matchday.matches.map(match => `
+                                <div class="flex items-center justify-between p-2 bg-green-800 rounded">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="font-medium"${gdAttr(match.home_team.id)}>${match.home_team.name}</span>
+                                        <span class="text-yellow-400 text-sm">vs</span>
+                                        <span class="font-medium"${gdAttr(match.away_team.id)}>${match.away_team.name}</span>
+                                    </div>
+                                    ${match.status === 'completed'
+                                        ? `<span class="text-lg font-bold text-green-300">${match.home_score || 0} - ${match.away_score || 0}</span>`
+                                        : '<span class="text-sm text-gray-300">Da giocare</span>'
+                                    }
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
                 
                 // Prossime giornate
                 if (upcomingMatchdays.length > 0) {
                     calendarHTML += `
                         <h4 class="text-lg font-semibold mb-4 text-yellow-400">🔜 Prossime Giornate</h4>
                         <div class="space-y-4 mb-8">
-                            ${upcomingMatchdays.map(matchday => `
-                                <div class="bg-green-700 p-4 rounded">
-                                    <h5 class="font-semibold mb-3 text-yellow-300">
-                                        ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description) 
-                                            ? matchday.description 
-                                            : `Giornata ${matchday.round_number}${matchday.description ? ` - ${matchday.description}` : ''}`
-                                        }
-                                        ${matchday.date ? `- ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
-                                    </h5>
-                                    <div class="space-y-2">
-                                        ${matchday.matches.map(match => `
-                                            <div class="flex items-center justify-between p-2 bg-green-800 rounded">
-                                                <div class="flex items-center space-x-3">
-                                                    <span class="font-medium"${gdAttr(match.home_team.id)}>${match.home_team.name}</span>
-                                                    <span class="text-yellow-400 text-sm">vs</span>
-                                                    <span class="font-medium"${gdAttr(match.away_team.id)}>${match.away_team.name}</span>
-                                                </div>
-                                                <span class="text-sm text-gray-300">Da giocare</span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            `).join('')}
+                            ${upcomingMatchdays.map(renderMatchday).join('')}
+                        </div>
+                    `;
+                }
+
+                // Giornate in corso
+                if (inProgressMatchdays.length > 0) {
+                    calendarHTML += `
+                        <h4 class="text-lg font-semibold mb-4 text-yellow-400">⏳ Giornate in corso</h4>
+                        <div class="space-y-4 mb-8">
+                            ${inProgressMatchdays.map(renderMatchday).join('')}
                         </div>
                     `;
                 }
@@ -2474,31 +2492,7 @@
                     calendarHTML += `
                         <h4 class="text-lg font-semibold mb-4 text-yellow-400">✅ Giornate Completate</h4>
                         <div class="space-y-4">
-                            ${completedMatchdays.reverse().map(matchday => `
-                                <div class="bg-green-700 p-4 rounded">
-                                    <h5 class="font-semibold mb-3 text-yellow-300">
-                                        ${matchday.description && ['Finale', 'Semifinali', 'Semifinale', 'Finale 3° posto', 'Quarti di finale', 'Ottavi di finale', 'Sedicesimi di finale'].includes(matchday.description) 
-                                            ? matchday.description 
-                                            : `Giornata ${matchday.round_number}${matchday.description ? ` - ${matchday.description}` : ''}`
-                                        }
-                                        ${matchday.date ? `- ${new Date(matchday.date).toLocaleDateString('it-IT')}` : ''}
-                                    </h5>
-                                    <div class="space-y-2">
-                                        ${matchday.matches.map(match => `
-                                            <div class="flex items-center justify-between p-2 bg-green-800 rounded">
-                                                <div class="flex items-center space-x-3">
-                                                    <span class="font-medium"${gdAttr(match.home_team.id)}>${match.home_team.name}</span>
-                                                    <span class="text-yellow-400 text-sm">vs</span>
-                                                    <span class="font-medium"${gdAttr(match.away_team.id)}>${match.away_team.name}</span>
-                                                </div>
-                                                <span class="text-lg font-bold text-green-300">
-                                                    ${match.home_score || 0} - ${match.away_score || 0}
-                                                </span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            `).join('')}
+                            ${completedMatchdays.reverse().map(renderMatchday).join('')}
                         </div>
                     `;
                 }
