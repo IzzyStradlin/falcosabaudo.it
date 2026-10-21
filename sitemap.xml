@@ -2,8 +2,17 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://falcosabaudo-it.vercel.app/</loc>
-    <lastmod>2025-06-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://falcosabaudo-it.vercel.app/storia.html</loc>
+  </url>
+  <url>
+    <loc>https://falcosabaudo-it.vercel.app/eventi.html</loc>
+  </url>
+  <url>
+    <loc>https://falcosabaudo-it.vercel.app/campionato.html</loc>
+  </url>
+  <url>
+    <loc>https://falcosabaudo-it.vercel.app/trofei.html</loc>
   </url>
 </urlset>
