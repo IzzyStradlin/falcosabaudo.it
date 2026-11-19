@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://hvviecqurdbpxxfmaapb.supabase.co; font-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';">
+    <title>Sponsor - Falco Sabaudo</title>
+    <link rel="canonical" href="https://falcosabaudo-it.vercel.app/sponsor.html">
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .sponsor-card {
+            background: linear-gradient(135deg, rgba(20, 83, 45, 0.95), rgba(6, 78, 59, 0.75));
+            border: 1px solid rgba(250, 204, 21, 0.35);
+            border-radius: 1.25rem;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+        }
+        .sponsor-image-frame {
+            overflow: hidden;
+            border-radius: 1rem;
+            border: 2px solid rgba(250, 204, 21, 0.65);
+            background: #064e3b;
+        }
+        .sponsor-image-frame img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            min-height: 18rem;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-green-900 text-white font-sans min-h-screen">
+    <header class="text-center py-8 border-b border-yellow-400">
+        <a href="index.html"><img src="assets/logo.svg" alt="Logo Falco Sabaudo" class="mx-auto w-32 mb-4"></a>
+        <h1 class="text-4xl font-bold">I nostri sponsor</h1>
+        <nav class="mt-4">
+            <a href="index.html" class="text-yellow-400 underline mx-2">Home</a>
+            <a href="storia.html" class="text-yellow-400 underline mx-2">La nostra storia</a>
+            <a href="campionato.html" class="text-yellow-400 underline mx-2">Gestione Campionato</a>
+            <a href="eventi.html" class="text-yellow-400 underline mx-2">Calendario Eventi</a>
+            <a href="timer.html" class="text-yellow-400 underline mx-2">Timer Partita</a>
+            <a href="trofei.html" class="text-yellow-400 underline mx-2">Vetrina dei trofei del Polpa</a>
+            <a href="sponsor.html" class="text-yellow-400 underline mx-2 font-bold" aria-current="page">Sponsor</a>
+        </nav>
+    </header>
+
+    <main class="px-6 max-w-6xl mx-auto">
+        <section class="my-12" aria-labelledby="serafino-title">
+            <div class="sponsor-card grid grid-cols-1 md:grid-cols-2 items-center gap-8 p-6 md:p-10">
+                <div>
+                    <p class="text-yellow-400 font-bold uppercase tracking-widest text-sm mb-3">SERAFINO</p>
+                    <h2 id="serafino-title" class="text-3xl md:text-4xl font-bold leading-tight mb-4">Il gusto di fare squadra.</h2>
+                    <p class="text-green-100 text-lg leading-relaxed mb-5">
+                        Ogni partita ha la sua storia. La nostra ha un ingrediente in più:
+                        <span class="text-yellow-300 font-semibold">Serafino</span>, con tutto il carattere della sua
+                        <span class="font-semibold">Polpa di palude</span>.
+                    </p>
+                    <p class="text-green-200 text-sm">Grazie a Serafino per essere parte della squadra Falco Sabaudo.</p>
+                </div>
+                <div>
+                    <div class="sponsor-image-frame max-w-md mx-auto">
+                        <img src="assets/sponsor-palude.jpeg" alt="La Polpa di palude Serafino, sponsor del Falco Sabaudo" loading="lazy">
+                    </div>
+                    <p class="text-center text-green-200 text-xs mt-3 tracking-wide">SERAFINO · POLPA DI PALUDE</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="my-12" aria-labelledby="grand-palp-title">
+            <div class="sponsor-card grid grid-cols-1 md:grid-cols-2 items-center gap-8 p-6 md:p-10">
+                <div class="order-2 md:order-1">
+                    <p class="text-yellow-400 font-bold uppercase tracking-widest text-sm mb-3">POLPSTAR GAMES</p>
+                    <h2 id="grand-palp-title" class="text-3xl md:text-4xl font-bold leading-tight mb-4">Grand Polp Auto VII</h2>
+                    <p class="text-green-100 text-lg leading-relaxed mb-5">
+                        Polpa, paludi e grandi avventure: diventa il King dei portierini in
+                        <span class="text-yellow-300 font-semibold">Grand Polp Auto VII</span>.
+                    </p>
+                    <p class="text-green-200 text-sm">Nessun portierino è stato maltrattato nello sviluppo di questo videogioco</p>
+                </div>
+                <div class="order-1 md:order-2">
+                    <div class="sponsor-image-frame max-w-md mx-auto">
+                        <img src="assets/sponsor-grand-palp-auto-vii.jpeg" alt="Locandina di Grand Palp Auto VII, secondo sponsor del Falco Sabaudo" loading="lazy">
+                    </div>
+                    <p class="text-center text-green-200 text-xs mt-3 tracking-wide">GRAND POLP AUTO VII</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center py-6 text-sm text-green-300">
+        © 2026 OSC Falco Sabaudo. Tutti i diritti riservati.
+    </footer>
+</body>
+</html>
